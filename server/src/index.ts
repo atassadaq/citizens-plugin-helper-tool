@@ -1,0 +1,30 @@
+import express from "express";
+import cors from "cors";
+import { config } from "./config.js";
+import { cacheReady } from "./rsCache.js";
+import { statusRouter } from "./routes/status.js";
+import { regionsRouter } from "./routes/regions.js";
+import { renderRouter } from "./routes/render.js";
+
+const app = express();
+app.use(cors());
+app.use(express.json({ limit: "5mb" }));
+
+app.use("/api", statusRouter);
+app.use("/api", regionsRouter);
+app.use("/api", renderRouter);
+
+async function main() {
+  console.log("Loading OSRS game cache...");
+  await cacheReady;
+  console.log("Cache ready.");
+
+  app.listen(config.port, () => {
+    console.log(`Server listening on http://localhost:${config.port}`);
+  });
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
