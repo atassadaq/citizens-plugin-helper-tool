@@ -4,6 +4,7 @@ import type {
   EntityDetail,
   EntityKind,
   EntityPage,
+  FavoriteEntry,
   KitSummary,
   NearbyEntities,
   NearbyNpc,
@@ -110,5 +111,20 @@ export const api = {
         });
       }
       return r.text();
+    }),
+
+  listFavorites: () => fetch("/api/favorites").then((r) => json<FavoriteEntry[]>(r)),
+
+  addFavorite: (entry: Omit<FavoriteEntry, "savedAt">) => post<FavoriteEntry>("/api/favorites", entry),
+
+  // DELETE returns 204 with no body, so this can't go through the json<T> helper (which
+  // always calls res.json()) - same reasoning as render()'s custom not-ok handling above.
+  removeFavorite: (key: string) =>
+    fetch(`/api/favorites/${encodeURIComponent(key)}`, { method: "DELETE" }).then((r) => {
+      if (!r.ok) {
+        return r.json().then((body) => {
+          throw new Error(body.error ?? `Request failed: ${r.status}`);
+        });
+      }
     }),
 };
