@@ -19,13 +19,18 @@ const KIND_FILTERS: { kind: FavoriteKind | "all"; label: string }[] = [
 ];
 
 export function FavoritesView({ onOpen }: Props) {
-  const { favorites, toggle } = useFavorites();
+  const { favorites, toggle, error } = useFavorites();
   const [kindFilter, setKindFilter] = useState<FavoriteKind | "all">("all");
   const [query, setQuery] = useState("");
 
   const filtered = favorites
     .filter((f) => kindFilter === "all" || f.kind === kindFilter)
-    .filter((f) => !query || (f.name ?? "").toLowerCase().includes(query.toLowerCase()));
+    .filter((f) => {
+      if (!query) return true;
+      const lowerQuery = query.toLowerCase();
+      if ((f.name ?? f.sourceLabel ?? "").toLowerCase().includes(lowerQuery)) return true;
+      return f.modelIds.join(",").includes(query);
+    });
 
   return (
     <div>
@@ -34,6 +39,8 @@ export function FavoritesView({ onOpen }: Props) {
         Snapshots of models/recolors/animations you've starred, across NPCs, objects, items, citizens and
         scenery. These do not update if the original source changes - remove and re-favorite to refresh one.
       </p>
+
+      {error && <p style={{ color: "crimson" }}>{error}</p>}
 
       <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
         {KIND_FILTERS.map((k) => (
@@ -94,15 +101,22 @@ export function FavoritesView({ onOpen }: Props) {
                   textOverflow: "ellipsis",
                 }}
               >
-                {entry.name ?? <span style={{ opacity: 0.5 }}>(unnamed)</span>}
+                {entry.name ?? (
+                  <span style={{ opacity: 0.7 }}>[{entry.modelIds.join(", ")}]</span>
+                )}
               </div>
               <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 4 }}>
                 {entry.kind} &middot; {entry.sourceLabel}
               </div>
               <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
-                <CopyButton text={entry.modelIds.join(",")} label="Copy ids" />
+                <span onClick={(e) => e.stopPropagation()}>
+                  <CopyButton text={entry.modelIds.join(",")} label="Copy ids" />
+                </span>
                 <button
-                  onClick={() => toggle(entry.key, () => entry)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggle(entry.key, () => entry);
+                  }}
                   style={{ fontSize: 12, padding: "3px 8px", color: "crimson" }}
                 >
                   Remove

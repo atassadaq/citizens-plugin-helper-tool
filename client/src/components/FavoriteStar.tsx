@@ -13,7 +13,7 @@ type Props = {
 // cards/editors. Always renders a filled or outline star; never a loading state -
 // FavoritesContext.toggle is optimistic, so there's nothing to wait on here.
 export function FavoriteStar({ entryKey, buildEntry, size = 16 }: Props) {
-  const { isFavorite, toggle } = useFavorites();
+  const { isFavorite, toggle, error } = useFavorites();
   const active = isFavorite(entryKey);
 
   return (
@@ -24,7 +24,7 @@ export function FavoriteStar({ entryKey, buildEntry, size = 16 }: Props) {
         e.stopPropagation();
         toggle(entryKey, buildEntry);
       }}
-      title={active ? "Remove from favorites" : "Add to favorites"}
+      title={error ?? (active ? "Remove from favorites" : "Add to favorites")}
       style={{
         border: "none",
         background: "none",
