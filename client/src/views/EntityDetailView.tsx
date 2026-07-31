@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { EntityDetail, EntityKind } from "@citizens-helper/shared/src/types";
 import { api } from "../api/client";
 import { ModelThumb } from "../components/ModelThumb";
+import { FavoriteStar } from "../components/FavoriteStar";
 import { LiveViewer } from "../three/LiveViewer";
 
 type Props = {
@@ -85,11 +86,33 @@ export function EntityDetailView({ kind, id, onBack }: Props) {
     <div>
       <button onClick={onBack}>&larr; Back to browser</button>
 
-      <h2 style={{ marginBottom: 2 }}>
+      <h2 style={{ marginBottom: 2, display: "flex", alignItems: "center", gap: 8 }}>
         {entity.name ?? <span style={{ opacity: 0.6 }}>(unnamed)</span>}{" "}
         <span style={{ fontSize: 14, opacity: 0.6, fontWeight: "normal" }}>
           {kind} #{entity.id}
         </span>
+        <FavoriteStar
+          entryKey={`${kind}:${entity.id}`}
+          buildEntry={() => {
+            const animations: Record<string, string | number> = {};
+            if (entity.standingAnimation != null && entity.standingAnimation >= 0) {
+              animations.standing = entity.standingAnimation;
+            }
+            if (entity.walkingAnimation != null && entity.walkingAnimation >= 0) {
+              animations.walking = entity.walkingAnimation;
+            }
+            return {
+              key: `${kind}:${entity.id}`,
+              kind,
+              sourceLabel: `${kind} #${entity.id}`,
+              name: entity.name,
+              modelIds: entity.modelIds,
+              recolorFind: entity.recolorFind,
+              recolorReplace: entity.recolorReplace,
+              animations,
+            };
+          }}
+        />
       </h2>
 
       <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 12 }}>
