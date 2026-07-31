@@ -19,11 +19,20 @@ const citizensRepoPath = required("CITIZENS_REPO_PATH");
 const jagexCachePath = required("JAGEX_CACHE_PATH");
 const regionDataPath =
   process.env.REGION_DATA_PATH ?? path.join(citizensRepoPath, "src", "main", "resources", "RegionData");
+// Sibling of RegionData. Scripts hold ScriptedCitizen movement routines, referenced from a
+// citizen's `startScript` by bare filename (see ScriptLoader.java).
+const scriptsPath = process.env.SCRIPTS_PATH ?? path.join(citizensRepoPath, "src", "main", "resources", "Scripts");
 const port = Number(process.env.PORT ?? 5175);
 
 if (!fs.existsSync(regionDataPath)) {
   throw new Error(
     `RegionData path does not exist: ${regionDataPath}. Check CITIZENS_REPO_PATH (or REGION_DATA_PATH) in .env.`,
+  );
+}
+
+if (!fs.existsSync(scriptsPath)) {
+  throw new Error(
+    `Scripts path does not exist: ${scriptsPath}. Check CITIZENS_REPO_PATH (or SCRIPTS_PATH) in .env.`,
   );
 }
 
@@ -39,5 +48,6 @@ export const config = {
   citizensRepoPath,
   jagexCachePath,
   regionDataPath,
+  scriptsPath,
   port,
 };

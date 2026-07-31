@@ -1,0 +1,293 @@
+diff --git a/node_modules/osrscachereader/src/cacheReader/loaders/ItemLoader.js b/node_modules/osrscachereader/src/cacheReader/loaders/ItemLoader.js
+index 783963b..0043070 100644
+--- a/node_modules/osrscachereader/src/cacheReader/loaders/ItemLoader.js
++++ b/node_modules/osrscachereader/src/cacheReader/loaders/ItemLoader.js
+@@ -182,8 +182,17 @@ export default class ItemLoader {
+         let dataview = new DataView(bytes.buffer);
+         let lastOpCode = 0;
+         do {
+-            var opcode = dataview.readUint8();
+-            this.handleOpcode(def, opcode, dataview, lastOpCode);
++            var opcode;
++            try {
++                opcode = dataview.readUint8();
++                this.handleOpcode(def, opcode, dataview, lastOpCode);
++            } catch (e) {
++                // Fail soft on opcodes newer than this loader, keeping whatever was already
++                // read. The opcode read is inside the try because a desynced record can run
++                // off the end of the buffer there too.
++                def.truncatedAtOpcode = opcode ?? -1;
++                break;
++            }
+             lastOpCode = opcode;
+         } while (opcode != 0);
+ 
+@@ -197,6 +206,35 @@ export default class ItemLoader {
+     handleOpcode(def, opcode, dataview, lastOpCode) {
+         if (opcode == 0) {
+             return;
++        } else if (opcode == 15) {
++            def.tradeable = false;
++        } else if (opcode == 51) {
++            def.maleHeadModel = dataview.readInt32();
++        } else if (opcode == 53) {
++            def.femaleHeadModel = dataview.readInt32();
++        } else if (opcode == 160) {
++            def.stackable = 2;
++        } else if (opcode == 44) {
++            // Opcodes 44-50 are the int32 siblings of opcode 1 and opcodes 23-26, the same
++            // wide-id variant pattern seen in the Npc (1 -> 61), Object (1/5 -> 6/7) and Kit
++            // (2 -> 5) loaders. Ported from RuneLite's cache ItemLoader.java. In the current
++            // live cache opcode 44 has fully replaced opcode 1, and because it sits first in
++            // the record, not knowing it left every single item def unparsed.
++            def.inventoryModel = dataview.readInt32();
++        } else if (opcode == 45) {
++            def.maleModel0 = dataview.readInt32();
++            def.maleOffset = dataview.readUint8();
++        } else if (opcode == 46) {
++            def.maleModel1 = dataview.readInt32();
++        } else if (opcode == 47) {
++            def.maleModel2 = dataview.readInt32();
++        } else if (opcode == 48) {
++            def.femaleModel0 = dataview.readInt32();
++            def.femaleOffset = dataview.readUint8();
++        } else if (opcode == 49) {
++            def.femaleModel1 = dataview.readInt32();
++        } else if (opcode == 50) {
++            def.femaleModel2 = dataview.readInt32();
+         } else if (opcode == 1) {
+             def.inventoryModel = dataview.readUint16();
+         } else if (opcode == 2) {
+@@ -363,7 +401,10 @@ export default class ItemLoader {
+                 def.params[key] = value;
+             }
+         } else {
+-            console.error("UNHANDLED OPCODE [ItemLoader]: " + opcode + " last: " + lastOpCode);
++            // Was only logging and returning, which reads no payload bytes and desyncs the
++            // rest of the record into garbage. Throw so load()'s catch truncates this one
++            // definition cleanly instead, matching the Npc/Object/Kit loader patches.
++            throw new Error(`ItemLoader: unhandled opcode ${opcode} (last ${lastOpCode})`);
+         }
+     }
+ }
+diff --git a/node_modules/osrscachereader/src/cacheReader/loaders/KitLoader.js b/node_modules/osrscachereader/src/cacheReader/loaders/KitLoader.js
+index d73ff34..bce2508 100644
+--- a/node_modules/osrscachereader/src/cacheReader/loaders/KitLoader.js
++++ b/node_modules/osrscachereader/src/cacheReader/loaders/KitLoader.js
+@@ -60,7 +60,17 @@ export default class KitLoader {
+         let dataview = new DataView(bytes.buffer);
+         do {
+             var opcode = dataview.readUint8();
+-            this.handleOpcode(def, opcode, dataview);
++            try {
++                this.handleOpcode(def, opcode, dataview);
++            } catch (e) {
++                // Unrecognized opcode (e.g. one added by a client revision newer than this
++                // loader knows about) - stop reading this one definition rather than
++                // throwing, which would otherwise abort the whole archive-wide batch load
++                // (every other kit definition along with it). Whatever fields were already
++                // read (bodyPartId, models, etc. - always emitted before any opcode this
++                // loader doesn't recognize) are kept.
++                break;
++            }
+         } while (opcode != 0);
+ 
+         return def;
+@@ -86,6 +96,16 @@ export default class KitLoader {
+                 def.nonSelectable = true;
+                 break;
+ 
++            case 5:
++                // Alternate encoding of `models` using 4-byte ints instead of opcode 2's
++                // 2-byte shorts. Confirmed against RuneLite's own (actively maintained)
++                // cache KitLoader.java, which this JS port was missing.
++                var length = dataview.readUint8();
++                def.models = [];
++
++                for (var index = 0; index < length; ++index) def.models[index] = dataview.readInt32();
++                break;
++
+             case 40:
+                 var length = dataview.readUint8();
+                 def.recolorToFind = [];
+@@ -99,8 +119,8 @@ export default class KitLoader {
+ 
+             case 41:
+                 var length = dataview.readUint16();
+-                def.retextureToFind = new short[length]();
+-                def.retextureToReplace = new short[length]();
++                def.retextureToFind = [];
++                def.retextureToReplace = [];
+ 
+                 for (var index = 0; index < length; ++index) {
+                     def.retextureToFind[index] = dataview.readInt16();
+@@ -112,6 +132,12 @@ export default class KitLoader {
+                 if (opcode >= 60 && opcode < 70) {
+                     if (def.chatheadModels == undefined) def.chatheadModels = [];
+                     def.chatheadModels[opcode - 60] = dataview.readUint16();
++                } else if (opcode >= 70 && opcode < 80) {
++                    // 4-byte variant of the 60-69 chathead-model range, same relationship
++                    // as opcode 5 is to opcode 2. Also confirmed against RuneLite's
++                    // KitLoader.java.
++                    if (def.chatheadModels == undefined) def.chatheadModels = [];
++                    def.chatheadModels[opcode - 70] = dataview.readInt32();
+                 } else {
+                     throw "Unknown opcode found: " + opcode;
+                 }
+diff --git a/node_modules/osrscachereader/src/cacheReader/loaders/NpcLoader.js b/node_modules/osrscachereader/src/cacheReader/loaders/NpcLoader.js
+index b6b35dd..a63ae89 100644
+--- a/node_modules/osrscachereader/src/cacheReader/loaders/NpcLoader.js
++++ b/node_modules/osrscachereader/src/cacheReader/loaders/NpcLoader.js
+@@ -199,8 +199,23 @@ export default class NpcLoader {
+         def.id = id;
+         let dataview = new DataView(bytes.buffer);
+         do {
+-            var opcode = dataview.readUint8();
+-            this.handleOpcode(def, opcode, dataview);
++            var opcode;
++            try {
++                // Opcode read is inside the try as well: an already-desynced record can run
++                // off the end of the buffer here rather than in a payload read, and that
++                // RangeError would otherwise escape load().
++                opcode = dataview.readUint8();
++                this.handleOpcode(def, opcode, dataview);
++            } catch (e) {
++                // Unrecognized opcode (one added by a client revision newer than this loader
++                // knows about) - stop reading this single definition instead of silently
++                // continuing. Continuing is actively harmful here: an unhandled opcode reads
++                // no bytes, so the very next byte of that opcode's payload gets interpreted
++                // as an opcode, and the whole record desyncs into garbage. Fields already
++                // read are kept. Same fail-soft approach as the KitLoader patch.
++                def.truncatedAtOpcode = opcode ?? -1;
++                break;
++            }
+         } while (opcode != 0);
+ 
+         return def;
+@@ -270,6 +285,31 @@ export default class NpcLoader {
+             for (index = 0; index < length; ++index) {
+                 def.chatheadModels.push(dataview.readUint16());
+             }
++        } else if (opcode == 61) {
++            // Models encoded as 4-byte ints rather than opcode 1's 2-byte shorts - the same
++            // wide-id variant relationship KitLoader has between its opcode 2 and opcode 5.
++            // In the current live cache this has entirely REPLACED opcode 1 for NPCs: 0 of
++            // 16338 npc defs still use opcode 1. (Not driven by id overflow - the largest
++            // model id actually referenced is 61851, still inside uint16 range - so treat
++            // this as a format change, not a range-forced one.)
++            // Verified empirically: every id decoded this way resolves to a real entry in
++            // the MODELS index with sane geometry (e.g. Man -> 9 body-part models,
++            // Cow -> one 475-vertex model), 13822/16338 defs decode models, and every one
++            // of 258 spot-checked ids across 60 npcs loads.
++            length = dataview.readUint8();
++            def.models = [];
++
++            for (index = 0; index < length; ++index) {
++                def.models.push(dataview.readInt32());
++            }
++        } else if (opcode == 62) {
++            // 4-byte-int variant of opcode 60's chathead models, by the same reasoning.
++            length = dataview.readUint8();
++            def.chatheadModels = [];
++
++            for (index = 0; index < length; ++index) {
++                def.chatheadModels.push(dataview.readInt32());
++            }
+         } else if (opcode == 74) {
+             def.stats[0] = dataview.readUint16();
+         } else if (opcode == 75) {
+@@ -432,6 +472,13 @@ export default class NpcLoader {
+ 
+                 def.params[key] = value;
+             }
++        } else if (opcode != 0) {
++            // Opcode 0 terminates the record; anything else reaching here is unknown to this
++            // loader. Throw so load()'s catch stops this definition cleanly. Falling through
++            // silently (the stock behaviour) consumes no payload bytes and desyncs the rest
++            // of the record into garbage - that's what previously left every NPC's `models`
++            // empty, since unknown opcode 61 sat directly in front of the model data.
++            throw new Error(`NpcLoader: unhandled opcode ${opcode}`);
+         }
+     }
+ }
+diff --git a/node_modules/osrscachereader/src/cacheReader/loaders/ObjectLoader.js b/node_modules/osrscachereader/src/cacheReader/loaders/ObjectLoader.js
+index 94e57cc..3b7a836 100644
+--- a/node_modules/osrscachereader/src/cacheReader/loaders/ObjectLoader.js
++++ b/node_modules/osrscachereader/src/cacheReader/loaders/ObjectLoader.js
+@@ -325,8 +325,22 @@ export default class ObjectLoader {
+         def.id = id;
+         let dataview = new DataView(bytes.buffer);
+         do {
+-            var opcode = dataview.readUint8();
+-            this.handleOpcode(def, opcode, dataview);
++            var opcode;
++            try {
++                // The opcode read has to be inside the try too: a record that has already
++                // desynced can run off the end of the buffer here rather than in a payload
++                // read, and that RangeError would otherwise escape load() entirely.
++                opcode = dataview.readUint8();
++                this.handleOpcode(def, opcode, dataview);
++            } catch (e) {
++                // Fail soft on unknown/newer opcodes, exactly as patched in NpcLoader and
++                // KitLoader. This one matters even more: CacheDefinitionLoader#loadDef
++                // rethrows, so a single unparseable object def (id 107 in the current live
++                // cache) aborts the entire 62k-def getAllDefs batch rather than just losing
++                // that one entry.
++                def.truncatedAtOpcode = opcode ?? -1;
++                break;
++            }
+         } while (opcode != 0);
+ 
+         return def;
+@@ -359,6 +373,31 @@ export default class ObjectLoader {
+                     def.objectModels.push(dataview.readUint16());
+                 }
+             }
++        } else if (opcode == 6) {
++            // int32 sibling of opcode 1 (model + per-model type pairs). Ported from
++            // RuneLite's own cache ObjectLoader.java, which is actively maintained against
++            // current revisions - same source of truth the KitLoader patch used.
++            var length = dataview.readUint8();
++            if (length > 0) {
++                def.objectTypes = [];
++                def.objectModels = [];
++
++                for (var index = 0; index < length; ++index) {
++                    def.objectModels.push(dataview.readInt32());
++                    def.objectTypes.push(dataview.readUint8());
++                }
++            }
++        } else if (opcode == 7) {
++            // int32 sibling of opcode 5 (models only, no per-model type).
++            var length = dataview.readUint8();
++            if (length > 0) {
++                def.objectTypes = null;
++                def.objectModels = [];
++
++                for (var index = 0; index < length; ++index) {
++                    def.objectModels.push(dataview.readInt32());
++                }
++            }
+         } else if (opcode == 14) {
+             def.sizeX = dataview.readUint8();
+         } else if (opcode == 15) {
+@@ -539,6 +578,8 @@ export default class ObjectLoader {
+             def.soundVisibility = dataview.readUint8();
+         } else if (opcode == 94) {
+             def.unknown1 = true;
++        } else if (opcode == 96) {
++            def.raise = dataview.readUint8();
+         } else if (opcode == 249) {
+             var length = dataview.readUint8();
+             def.params = {};
+@@ -557,6 +598,10 @@ export default class ObjectLoader {
+ 
+                 def.params[key] = value;
+             }
++        } else {
++            // Unknown to this loader - throw so load()'s catch truncates just this def.
++            // Falling through silently consumes no payload bytes and desyncs the record.
++            throw new Error(`ObjectLoader: unhandled opcode ${opcode}`);
+         }
+     }
+ }

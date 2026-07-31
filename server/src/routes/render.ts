@@ -17,8 +17,10 @@ renderRouter.post("/render", async (req, res) => {
     return;
   }
 
+  const animationId = typeof body.animationId === "number" ? body.animationId : null;
+
   try {
-    const gltf = await renderModels({ modelIds: body.modelIds, recolorFind, recolorReplace });
+    const gltf = await renderModels({ modelIds: body.modelIds, recolorFind, recolorReplace, animationId });
     res.type("application/json").send(gltf);
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });

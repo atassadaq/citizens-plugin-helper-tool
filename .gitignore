@@ -6,3 +6,4 @@ out/
 *.gltf
 .vscode/
 .DS_Store
+server/.cache/
