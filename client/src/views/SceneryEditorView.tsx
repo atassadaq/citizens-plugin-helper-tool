@@ -3,6 +3,7 @@ import type { CitizenRegionFile, SceneryInfo, WorldPoint } from "@citizens-helpe
 import { ANIMATION_IDS } from "@citizens-helper/shared/src/animationIds";
 import { api } from "../api/client";
 import { AppearancePicker } from "../components/AppearancePicker";
+import { FavoriteStar } from "../components/FavoriteStar";
 import { RegionTileMap, type MapMarker } from "../components/RegionTileMap";
 import { regionOrigin } from "../components/gameMap";
 import { LiveViewer } from "../three/LiveViewer";
@@ -207,7 +208,28 @@ export function SceneryEditorView({ regionId, uuid, initialPoint, onBack, onCrea
   return (
     <div>
       <button onClick={onBack}>&larr; Back to region {regionId}</button>
-      <h2 style={{ marginBottom: 2 }}>{isCreate ? "New scenery" : `Scenery [${draft.modelIds.join(", ")}]`}</h2>
+      <h2 style={{ marginBottom: 2, display: "flex", alignItems: "center", gap: 8 }}>
+        {isCreate ? "New scenery" : `Scenery [${draft.modelIds.join(", ")}]`}
+        {!isCreate && uuid && (
+          <FavoriteStar
+            entryKey={`scenery:${regionId}:${uuid}`}
+            buildEntry={() => {
+              const animations: Record<string, string | number> = {};
+              if (draft.idleAnimation) animations.idle = draft.idleAnimation;
+              return {
+                key: `scenery:${regionId}:${uuid}`,
+                kind: "scenery",
+                sourceLabel: `region ${regionId}`,
+                name: null,
+                modelIds: draft.modelIds,
+                recolorFind: draft.modelRecolorFind ?? [],
+                recolorReplace: draft.modelRecolorReplace ?? [],
+                animations,
+              };
+            }}
+          />
+        )}
+      </h2>
       <p style={{ fontSize: 12, opacity: 0.65, marginTop: 0 }}>Region {regionId}</p>
 
       <div style={{ display: "flex", gap: 20, alignItems: "flex-start", flexWrap: "wrap" }}>

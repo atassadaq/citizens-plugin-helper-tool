@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { CitizenInfo, CitizenRegionFile, WorldPoint } from "@citizens-helper/shared/src/types";
 import { api } from "../api/client";
 import { ModelThumb } from "../components/ModelThumb";
+import { FavoriteStar } from "../components/FavoriteStar";
 import { RegionOverview } from "../components/RegionOverview";
 import { NearbyNpcRoster } from "../components/NearbyNpcRoster";
 
@@ -24,12 +25,14 @@ const NEARBY_RADIUS = 2;
 
 function CitizenCard({
   citizen,
+  regionId,
   onClick,
   onDuplicate,
   onDelete,
   busy,
 }: {
   citizen: CitizenInfo;
+  regionId: number;
   onClick: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
@@ -37,6 +40,26 @@ function CitizenCard({
 }) {
   return (
     <div style={{ border: "1px solid #ddd", borderRadius: 6, padding: 8, width: 144, textAlign: "center" }}>
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <FavoriteStar
+          entryKey={`citizen:${regionId}:${citizen.uuid}`}
+          buildEntry={() => {
+            const animations: Record<string, string | number> = {};
+            if (citizen.idleAnimation) animations.idle = citizen.idleAnimation;
+            if (citizen.moveAnimation) animations.move = citizen.moveAnimation;
+            return {
+              key: `citizen:${regionId}:${citizen.uuid}`,
+              kind: "citizen",
+              sourceLabel: `region ${regionId}`,
+              name: citizen.name,
+              modelIds: citizen.modelIds,
+              recolorFind: citizen.modelRecolorFind ?? [],
+              recolorReplace: citizen.modelRecolorReplace ?? [],
+              animations,
+            };
+          }}
+        />
+      </div>
       <div onClick={onClick} style={{ cursor: "pointer" }}>
         <ModelThumb
           modelIds={citizen.modelIds}
@@ -181,6 +204,7 @@ export function RegionDetailView({
           <CitizenCard
             key={c.uuid}
             citizen={c}
+            regionId={regionId}
             busy={busy}
             onClick={() => onSelectCitizen(c.uuid)}
             onDuplicate={() => mutate(() => api.duplicateCitizen(regionId, c.uuid))}
@@ -197,6 +221,25 @@ export function RegionDetailView({
       <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
         {region.sceneryRoster.map((s) => (
           <div key={s.uuid} style={{ border: "1px solid #ddd", borderRadius: 6, padding: 8, width: 144, textAlign: "center" }}>
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <FavoriteStar
+                entryKey={`scenery:${regionId}:${s.uuid}`}
+                buildEntry={() => {
+                  const animations: Record<string, string | number> = {};
+                  if (s.idleAnimation) animations.idle = s.idleAnimation;
+                  return {
+                    key: `scenery:${regionId}:${s.uuid}`,
+                    kind: "scenery",
+                    sourceLabel: `region ${regionId}`,
+                    name: null,
+                    modelIds: s.modelIds,
+                    recolorFind: s.modelRecolorFind ?? [],
+                    recolorReplace: s.modelRecolorReplace ?? [],
+                    animations,
+                  };
+                }}
+              />
+            </div>
             <ModelThumb
               modelIds={s.modelIds}
               recolorFind={s.modelRecolorFind ?? []}

@@ -10,6 +10,7 @@ import { ANIMATION_IDS, animationSequenceId } from "@citizens-helper/shared/src/
 import { api } from "../api/client";
 import { AnimationControls, type PreviewAnim } from "../components/AnimationControls";
 import { AppearancePicker } from "../components/AppearancePicker";
+import { FavoriteStar } from "../components/FavoriteStar";
 import { ScriptEditor, appendWaypoint, routePoints } from "../components/ScriptEditor";
 import { RegionTileMap, type MapMarker, type WanderBox } from "../components/RegionTileMap";
 import { regionOrigin } from "../components/gameMap";
@@ -312,7 +313,31 @@ export function CitizenEditorView({
   return (
     <div>
       <button onClick={onBack}>&larr; Back to region {regionId}</button>
-      <h2 style={{ marginBottom: 2 }}>{isCreate ? "New citizen" : draft.name}</h2>
+      <h2 style={{ marginBottom: 2, display: "flex", alignItems: "center", gap: 8 }}>
+        {isCreate ? "New citizen" : draft.name}
+        {/* Not favoritable while still a draft (isCreate) - there's no uuid yet to key on
+            until the first save. */}
+        {!isCreate && uuid && (
+          <FavoriteStar
+            entryKey={`citizen:${regionId}:${uuid}`}
+            buildEntry={() => {
+              const animations: Record<string, string | number> = {};
+              if (draft.idleAnimation) animations.idle = draft.idleAnimation;
+              if (draft.moveAnimation) animations.move = draft.moveAnimation;
+              return {
+                key: `citizen:${regionId}:${uuid}`,
+                kind: "citizen",
+                sourceLabel: `region ${regionId}`,
+                name: draft.name,
+                modelIds: draft.modelIds,
+                recolorFind: draft.modelRecolorFind ?? [],
+                recolorReplace: draft.modelRecolorReplace ?? [],
+                animations,
+              };
+            }}
+          />
+        )}
+      </h2>
       <p style={{ fontSize: 12, opacity: 0.65, marginTop: 0 }}>Region {regionId}</p>
 
       <div style={{ display: "flex", gap: 20, alignItems: "flex-start", flexWrap: "wrap" }}>
