@@ -6,6 +6,7 @@ import { CitizenEditorView } from "./views/CitizenEditorView";
 import { SceneryEditorView } from "./views/SceneryEditorView";
 import { EntityBrowserView } from "./views/EntityBrowserView";
 import { EntityDetailView } from "./views/EntityDetailView";
+import { FavoritesView } from "./views/FavoritesView";
 import { ModelBrowser } from "./components/ModelBrowser";
 import { regionIdFromTile } from "./components/gameMap";
 
@@ -56,6 +57,7 @@ function Chrome({ children }: { children: React.ReactNode }) {
         <div style={{ display: "flex", gap: 8 }}>
           <Link to="/entities/npc">Entity Browser</Link>
           <Link to="/kits">Kit Browser</Link>
+          <Link to="/favorites">Favorites</Link>
         </div>
       </div>
       {children}
@@ -176,6 +178,26 @@ function EntityDetailRoute() {
   );
 }
 
+function FavoritesRoute() {
+  const navigate = useNavigate();
+  return (
+    <Chrome>
+      <FavoritesView
+        onOpen={(entry) => {
+          const parts = entry.key.split(":");
+          if (entry.kind === "npc" || entry.kind === "object" || entry.kind === "item") {
+            navigate(`/entities/${entry.kind}/${parts[1]}`);
+          } else if (entry.kind === "citizen") {
+            navigate(`/regions/${parts[1]}/citizens/${parts[2]}`);
+          } else {
+            navigate(`/regions/${parts[1]}/scenery/${parts[2]}`);
+          }
+        }}
+      />
+    </Chrome>
+  );
+}
+
 export default function App() {
   return (
     <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
@@ -186,6 +208,7 @@ export default function App() {
         <Route path="/regions/:regionId/scenery/:uuid" element={<SceneryEditorRoute />} />
         <Route path="/entities/:kind" element={<EntityBrowserRoute />} />
         <Route path="/entities/:kind/:id" element={<EntityDetailRoute />} />
+        <Route path="/favorites" element={<FavoritesRoute />} />
         <Route
           path="/kits"
           element={

@@ -3,6 +3,7 @@ import type { EntityDetail, EntityKind } from "@citizens-helper/shared/src/types
 import { api } from "../api/client";
 import { ModelThumb } from "../components/ModelThumb";
 import { FavoriteStar } from "../components/FavoriteStar";
+import { CopyButton } from "../components/CopyButton";
 import { LiveViewer } from "../three/LiveViewer";
 
 type Props = {
@@ -10,23 +11,6 @@ type Props = {
   id: number;
   onBack: () => void;
 };
-
-function CopyButton({ text, label }: { text: string; label: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      onClick={() => {
-        navigator.clipboard.writeText(text).then(() => {
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1200);
-        });
-      }}
-      style={{ fontSize: 12, padding: "3px 8px" }}
-    >
-      {copied ? "Copied!" : label}
-    </button>
-  );
-}
 
 export function EntityDetailView({ kind, id, onBack }: Props) {
   const [entity, setEntity] = useState<EntityDetail | null>(null);
