@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import type { EntityKind, EntityPage } from "@citizens-helper/shared/src/types";
+import type { EntityKind, EntityPage, EntitySummary } from "@citizens-helper/shared/src/types";
 import { api } from "../api/client";
 import { ModelThumb } from "../components/ModelThumb";
+import { FavoriteStar } from "../components/FavoriteStar";
+import { EntityPreviewGrid, type PreviewItem } from "../components/EntityPreviewGrid";
+import { useFavorites } from "../favorites/FavoritesContext";
 
 type Props = {
   kind: EntityKind;
@@ -17,12 +20,29 @@ const KINDS: { kind: EntityKind; label: string }[] = [
 
 const PAGE_SIZE = 60;
 
+// The shape both the paginated catalog results and the client-side favorites filter get
+// normalized into before rendering, so EntityPreviewGrid/renderCard only deal with one type.
+type BrowserItem = PreviewItem & { id: number };
+
+function fromSummary(kind: EntityKind, entity: EntitySummary): BrowserItem {
+  return {
+    key: `${kind}:${entity.id}`,
+    id: entity.id,
+    name: entity.name,
+    modelIds: entity.modelIds,
+    recolorFind: entity.recolorFind,
+    recolorReplace: entity.recolorReplace,
+  };
+}
+
 export function EntityBrowserView({ kind, onSelect }: Props) {
   const [rawQuery, setRawQuery] = useState("");
   const [query, setQuery] = useState("");
   const [offset, setOffset] = useState(0);
   const [page, setPage] = useState<EntityPage | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const { favorites } = useFavorites();
 
   // Debounced so typing doesn't fire a request per keystroke against a 62k-entry catalog.
   useEffect(() => {
@@ -41,6 +61,11 @@ export function EntityBrowserView({ kind, onSelect }: Props) {
   }, [kind]);
 
   useEffect(() => {
+    if (favoritesOnly) {
+      // Favorites are already-fetched snapshots with everything the grid needs - no
+      // reason to also hit the paginated catalog search.
+      return;
+    }
     let cancelled = false;
     setError(null);
     api
@@ -54,14 +79,28 @@ export function EntityBrowserView({ kind, onSelect }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [kind, query, offset]);
+  }, [kind, query, offset, favoritesOnly]);
 
-  const total = page?.total ?? 0;
-  const shownTo = Math.min(offset + PAGE_SIZE, total);
+  const favoriteItems: BrowserItem[] = favorites
+    .filter((f) => f.kind === kind)
+    .filter((f) => !query || (f.name ?? "").toLowerCase().includes(query.toLowerCase()))
+    .map((f) => ({
+      key: f.key,
+      id: Number(f.key.split(":")[1]),
+      name: f.name,
+      modelIds: f.modelIds,
+      recolorFind: f.recolorFind,
+      recolorReplace: f.recolorReplace,
+    }));
+
+  const catalogItems: BrowserItem[] = (page?.items ?? []).map((entity) => fromSummary(kind, entity));
+  const items = favoritesOnly ? favoriteItems : catalogItems;
+  const total = favoritesOnly ? favoriteItems.length : (page?.total ?? 0);
+  const shownTo = favoritesOnly ? favoriteItems.length : Math.min(offset + PAGE_SIZE, total);
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
         {KINDS.map((k) => (
           <Link
             key={k.kind}
@@ -84,53 +123,87 @@ export function EntityBrowserView({ kind, onSelect }: Props) {
           onChange={(e) => setRawQuery(e.target.value)}
           style={{ marginLeft: "auto", padding: 6, width: 280 }}
         />
+        <label style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
+          <input
+            type="checkbox"
+            checked={favoritesOnly}
+            onChange={(e) => {
+              setFavoritesOnly(e.target.checked);
+              setOffset(0);
+            }}
+          />
+          ★ Favorites only
+        </label>
       </div>
 
       <p style={{ fontSize: 12, opacity: 0.7, marginTop: 0 }}>
         Every entity here is a source of model ids to paste into a citizen. Entities with no models are hidden.
-        Open one to see the individual models it's built from.
+        Click one to preview it live in the panel on the right.
       </p>
 
-      {error && <p style={{ color: "crimson" }}>{error}</p>}
-      {!page && !error && <p>Loading...</p>}
-      {page && total === 0 && <p>No matches.</p>}
+      {error && !favoritesOnly && <p style={{ color: "crimson" }}>{error}</p>}
+      {!page && !favoritesOnly && !error && <p>Loading...</p>}
+      {total === 0 && (page || favoritesOnly) && (
+        <p>{favoritesOnly ? "No favorites for this kind yet." : "No matches."}</p>
+      )}
 
-      {page && total > 0 && (
+      {total > 0 && (
         <>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8, fontSize: 13 }}>
-            <button onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))} disabled={offset === 0}>
-              &larr; Prev
-            </button>
-            <span>
-              {offset + 1}-{shownTo} of {total}
-            </span>
-            <button onClick={() => setOffset(offset + PAGE_SIZE)} disabled={shownTo >= total}>
-              Next &rarr;
-            </button>
-          </div>
+          {!favoritesOnly && (
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8, fontSize: 13 }}>
+              <button onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))} disabled={offset === 0}>
+                &larr; Prev
+              </button>
+              <span>
+                {offset + 1}-{shownTo} of {total}
+              </span>
+              <button onClick={() => setOffset(offset + PAGE_SIZE)} disabled={shownTo >= total}>
+                Next &rarr;
+              </button>
+            </div>
+          )}
 
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-            {page.items.map((entity) => (
-              <button
-                key={entity.id}
-                onClick={() => onSelect(entity.id)}
+          <EntityPreviewGrid
+            items={items}
+            openAction={{ label: "Open full details →", onOpen: (item) => onSelect(item.id) }}
+            renderCard={(item, selected) => (
+              <div
                 style={{
-                  border: "1px solid #ddd",
+                  border: selected ? "2px solid #4a90e2" : "1px solid #ddd",
                   borderRadius: 6,
                   padding: 8,
                   width: 132,
                   background: "white",
-                  cursor: "pointer",
                   textAlign: "center",
+                  position: "relative",
                 }}
-                title={`${entity.name ?? "(unnamed)"} - id ${entity.id}`}
+                title={`${item.name ?? "(unnamed)"} - id ${item.id}`}
               >
+                <div style={{ position: "absolute", top: 2, right: 2 }}>
+                  <FavoriteStar
+                    entryKey={item.key}
+                    buildEntry={() => ({
+                      key: item.key,
+                      kind,
+                      sourceLabel: `${kind} #${item.id}`,
+                      name: item.name,
+                      modelIds: item.modelIds,
+                      recolorFind: item.recolorFind,
+                      recolorReplace: item.recolorReplace,
+                      // Grid rows only carry EntitySummary fields (id/name/models/recolors) -
+                      // standing/walking animation is only available on the full EntityDetail
+                      // fetched by the detail page, so a favorite made from here has none.
+                      // Open the entity and favorite it from there to capture animations too.
+                      animations: {},
+                    })}
+                  />
+                </div>
                 <ModelThumb
-                  modelIds={entity.modelIds}
-                  recolorFind={entity.recolorFind}
-                  recolorReplace={entity.recolorReplace}
+                  modelIds={item.modelIds}
+                  recolorFind={item.recolorFind}
+                  recolorReplace={item.recolorReplace}
                   size={112}
-                  alt={entity.name ?? String(entity.id)}
+                  alt={item.name ?? String(item.id)}
                 />
                 <div
                   style={{
@@ -141,14 +214,14 @@ export function EntityBrowserView({ kind, onSelect }: Props) {
                     textOverflow: "ellipsis",
                   }}
                 >
-                  {entity.name ?? <span style={{ opacity: 0.5 }}>(unnamed)</span>}
+                  {item.name ?? <span style={{ opacity: 0.5 }}>(unnamed)</span>}
                 </div>
                 <div style={{ fontSize: 11, opacity: 0.6 }}>
-                  #{entity.id} &middot; {entity.modelIds.length} model{entity.modelIds.length === 1 ? "" : "s"}
+                  #{item.id} &middot; {item.modelIds.length} model{item.modelIds.length === 1 ? "" : "s"}
                 </div>
-              </button>
-            ))}
-          </div>
+              </div>
+            )}
+          />
         </>
       )}
     </div>
