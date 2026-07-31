@@ -8,6 +8,7 @@ import { renderRouter } from "./routes/render.js";
 import { kitsRouter } from "./routes/kits.js";
 import { entitiesRouter } from "./routes/entities.js";
 import { scriptsRouter } from "./routes/scripts.js";
+import { favoritesRouter } from "./routes/favorites.js";
 
 const app = express();
 app.use(cors());
@@ -19,6 +20,7 @@ app.use("/api", renderRouter);
 app.use("/api", kitsRouter);
 app.use("/api", entitiesRouter);
 app.use("/api", scriptsRouter);
+app.use("/api", favoritesRouter);
 
 async function main() {
   console.log("Loading OSRS game cache...");

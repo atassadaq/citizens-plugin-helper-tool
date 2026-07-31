@@ -7,4 +7,5 @@ out/
 .vscode/
 .DS_Store
 server/.cache/
+server/data/
 .worktrees/
