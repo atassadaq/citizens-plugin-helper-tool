@@ -223,3 +223,35 @@ export type EntityPage = {
   limit: number;
   items: EntitySummary[];
 };
+
+// ---------------------------------------------------------------------------
+// Favorites (tool-only - NOT part of the Java plugin contract, unlike every
+// other type in this file. Freely add/change fields here without touching
+// CitizenRegion.java or any Gson round-trip behavior.)
+// ---------------------------------------------------------------------------
+
+export type FavoriteKind = "npc" | "object" | "item" | "citizen" | "scenery";
+
+// A frozen snapshot, not a live pointer: editing or deleting the source
+// (an NPC def changing, a citizen being deleted) does not change or invalidate
+// an existing favorite. Re-favorite the same key to refresh it.
+export type FavoriteEntry = {
+  // Identity + dedup key. "npc:1234" / "object:5" / "item:9" for cache
+  // entities; "citizen:<regionId>:<uuid>" / "scenery:<regionId>:<uuid>" for
+  // RegionData entities.
+  key: string;
+  kind: FavoriteKind;
+  // Display-only breadcrumb back to where this was favorited from, e.g.
+  // "npc #1234" or "region 12086". Never used for lookups.
+  sourceLabel: string;
+  name: string | null;
+  modelIds: number[];
+  recolorFind: number[];
+  recolorReplace: number[];
+  // Loose label->value bag rather than a discriminated union per kind: npc
+  // snapshots carry numeric cache sequence ids (standing/walking), citizen/
+  // scenery snapshots carry AnimationID name strings (idle/move). Empty `{}`
+  // for object/item, which have no animation fields in the cache at all.
+  animations: Record<string, string | number>;
+  savedAt: string; // ISO timestamp, set server-side on create
+};
