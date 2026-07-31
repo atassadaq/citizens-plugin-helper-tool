@@ -64,6 +64,10 @@ export function EntityDetailView({ kind, id, onBack }: Props) {
   if (error) return <p style={{ color: "crimson" }}>{error}</p>;
   if (!entity) return <p>Loading...</p>;
 
+  // The live preview and "Copy all model ids" button both key off the currently selected
+  // variant tab (Body/Chathead/Worn (male)/etc), not the catalog's "primary" variant - so
+  // favoriting must snapshot the same ids, or the star would silently favorite something
+  // other than what's on screen.
   const allIds = variant?.modelIds ?? [];
 
   return (
@@ -88,9 +92,9 @@ export function EntityDetailView({ kind, id, onBack }: Props) {
             return {
               key: `${kind}:${entity.id}`,
               kind,
-              sourceLabel: `${kind} #${entity.id}`,
+              sourceLabel: `${kind} #${entity.id} (${variant?.label ?? "default"})`,
               name: entity.name,
-              modelIds: entity.modelIds,
+              modelIds: allIds,
               recolorFind: entity.recolorFind,
               recolorReplace: entity.recolorReplace,
               animations,

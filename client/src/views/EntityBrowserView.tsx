@@ -54,10 +54,14 @@ export function EntityBrowserView({ kind, onSelect }: Props) {
   }, [rawQuery]);
 
   // Reset paging when switching tabs, otherwise page 40 of NPCs lands you deep into objects.
+  // Also clear the fetched page itself - otherwise cards from the previous kind can briefly
+  // render under the new kind's label before the new fetch resolves, e.g. mislabeling an
+  // NPC's favorite key as `object:<npcId>` if a star is clicked in that window.
   useEffect(() => {
     setOffset(0);
     setRawQuery("");
     setQuery("");
+    setPage(null);
   }, [kind]);
 
   useEffect(() => {
