@@ -1,7 +1,9 @@
 import fs from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
-import type { FavoriteEntry } from "@citizens-helper/shared/src/types.js";
+import type { FavoriteEntry, FavoriteKind } from "@citizens-helper/shared/src/types.js";
+
+const VALID_KINDS: FavoriteKind[] = ["npc", "object", "item", "citizen", "scenery"];
 
 // Lives in the helper tool's own repo (server/data/), not under RegionData/Scripts in
 // citizensRunelite - favorites aren't part of the Java plugin's Gson contract, so they
@@ -15,8 +17,13 @@ async function readAll(): Promise<FavoriteEntry[]> {
     return JSON.parse(raw) as FavoriteEntry[];
   } catch (err) {
     // Missing file is the normal state for a fresh install - favorites aren't required
-    // for the tool to function, unlike RegionData/the cache path in config.ts.
+    // for the tool to function, unlike RegionData/the cache path in config.ts. A corrupt/
+    // unparseable file degrades the same way rather than 500ing every route - favorites
+    // are a nice-to-have snapshot store, not a source of truth worth failing hard over.
     if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      return [];
+    }
+    if (err instanceof SyntaxError) {
       return [];
     }
     throw err;
@@ -37,6 +44,12 @@ export async function listFavorites(): Promise<FavoriteEntry[]> {
 export async function addFavorite(entry: Omit<FavoriteEntry, "savedAt">): Promise<FavoriteEntry> {
   if (!entry.key || !entry.kind) {
     throw new Error("favorite must have a key and kind");
+  }
+  if (!VALID_KINDS.includes(entry.kind)) {
+    throw new Error(`favorite kind must be one of ${VALID_KINDS.join(", ")}`);
+  }
+  if (!Array.isArray(entry.modelIds) || !Array.isArray(entry.recolorFind) || !Array.isArray(entry.recolorReplace)) {
+    throw new Error("favorite must have modelIds, recolorFind and recolorReplace as arrays");
   }
   const entries = await readAll();
   const full: FavoriteEntry = { ...entry, savedAt: new Date().toISOString() };
