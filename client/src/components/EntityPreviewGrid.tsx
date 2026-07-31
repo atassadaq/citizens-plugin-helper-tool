@@ -39,6 +39,7 @@ export function EntityPreviewGrid<T extends PreviewItem>({ items, renderCard, op
   useEffect(() => {
     if (!selected || selected.modelIds.length === 0) {
       setGltf(null);
+      setPreviewError(null);
       return;
     }
     let cancelled = false;
