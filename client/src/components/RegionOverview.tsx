@@ -138,20 +138,22 @@ export function RegionOverview({
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 12, alignItems: "center", fontSize: 12, marginBottom: 6, flexWrap: "wrap" }}>
+      <div className="row xsmall muted" style={{ marginBottom: 6 }}>
         <Legend color={CITIZEN_COLOR} label={`Citizens (${localCitizens} here)`} />
         <Legend color={SCENERY_COLOR} label={`Scenery (${localScenery} here)`} />
-        {nearby && (
-          <span style={{ opacity: 0.7 }}>
-            Faded: {entities.citizens.length - localCitizens + (entities.scenery.length - localScenery)} from{" "}
-            {Math.max(nearby.regionIds.length - 1, 0)} neighbouring region
-            {nearby.regionIds.length === 2 ? "" : "s"} (radius {nearby.radius})
+        {nearby && nearby.regionIds.length > 1 && (
+          <span className="faint">
+            Faded markers are in the {nearby.regionIds.length - 1} neighbouring regions.
           </span>
         )}
-        {pendingThumbs > 0 && <span style={{ opacity: 0.6 }}>rendering {pendingThumbs} thumbnails...</span>}
+        {pendingThumbs > 0 && (
+          <span className="row-tight faint">
+            <span className="spinner" style={{ width: 10, height: 10 }} /> rendering {pendingThumbs}
+          </span>
+        )}
       </div>
 
-      {error && <p style={{ color: "crimson", fontSize: 13 }}>{error}</p>}
+      {error && <div className="callout callout-danger" style={{ marginBottom: 6 }}>{error}</div>}
 
       <div style={{ position: "relative" }}>
         <RegionTileMap
@@ -178,9 +180,6 @@ export function RegionOverview({
         )}
       </div>
 
-      <p style={{ fontSize: 11, opacity: 0.7, marginTop: 6 }}>
-        Click a marker to edit it. Right-click a tile to add something there.
-      </p>
     </div>
   );
 }
@@ -230,44 +229,14 @@ function TileMenu({
     };
   }, [onClose]);
 
-  const item: React.CSSProperties = {
-    display: "block",
-    width: "100%",
-    textAlign: "left",
-    padding: "6px 12px",
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    fontSize: 13,
-  };
-
   return (
-    <div
-      ref={ref}
-      // Fixed rather than absolute: the coordinates come from the mouse event, which is in
-      // viewport space, and the map sits inside a scrollable page.
-      style={{
-        position: "fixed",
-        left: menu.screen.x,
-        top: menu.screen.y,
-        zIndex: 2000,
-        background: "white",
-        border: "1px solid #ccc",
-        borderRadius: 6,
-        boxShadow: "0 4px 14px rgba(0,0,0,0.25)",
-        overflow: "hidden",
-        minWidth: 170,
-      }}
-    >
-      <div style={{ padding: "6px 12px", fontSize: 11, opacity: 0.65, borderBottom: "1px solid #eee" }}>
-        Tile ({menu.point.x}, {menu.point.y}, z{menu.point.plane})
+    <div ref={ref} className="context-menu" style={{ left: menu.screen.x, top: menu.screen.y }}>
+      <div className="ctx-title mono">
+        Tile {menu.point.x}, {menu.point.y}
+        {menu.point.plane ? ` · z${menu.point.plane}` : ""}
       </div>
-      <button style={item} onClick={onAddCitizen}>
-        Add citizen here
-      </button>
-      <button style={item} onClick={onAddScenery}>
-        Add scenery here
-      </button>
+      <button onClick={onAddCitizen}>Add citizen here</button>
+      <button onClick={onAddScenery}>Add scenery here</button>
     </div>
   );
 }

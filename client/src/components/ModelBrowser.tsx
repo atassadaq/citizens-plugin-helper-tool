@@ -50,7 +50,7 @@ function KitCard({ kit }: { kit: KitSummary }) {
   return (
     <div
       style={{
-        border: "1px solid #ddd",
+        border: "1px solid var(--border)",
         borderRadius: 6,
         padding: 8,
         width: 140,
@@ -63,7 +63,7 @@ function KitCard({ kit }: { kit: KitSummary }) {
         style={{
           width: 128,
           height: 128,
-          background: "#f2f2f2",
+          background: "var(--surface-2)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -72,7 +72,7 @@ function KitCard({ kit }: { kit: KitSummary }) {
       >
         {thumb && <img src={thumb} width={128} height={128} alt={`kit ${kit.id}`} />}
         {!thumb && !failed && <span style={{ fontSize: 11, opacity: 0.5 }}>loading...</span>}
-        {failed && <span style={{ fontSize: 11, color: "crimson" }}>render failed</span>}
+        {failed && <span style={{ fontSize: 11, color: "var(--danger)" }}>render failed</span>}
       </div>
       <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 4 }}>[{kit.models.join(", ")}]</div>
       <button onClick={copyIds} style={{ fontSize: 11, padding: "2px 6px" }}>
@@ -118,7 +118,7 @@ export function ModelBrowser({ onBack }: Props) {
         confirmed-accurate labels - the rest ("Group N") are unverified, so trust the picture over the name.
       </p>
 
-      {error && <p style={{ color: "crimson" }}>{error}</p>}
+      {error && <p style={{ color: "var(--danger)" }}>{error}</p>}
 
       {bodyParts && (
         <select

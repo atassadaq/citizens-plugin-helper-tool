@@ -55,8 +55,8 @@ export function AnimationControls({
             style={{
               fontSize: 12,
               padding: "3px 10px",
-              background: previewAnim === tab.id ? "#4a90e2" : "#eee",
-              color: previewAnim === tab.id ? "white" : "inherit",
+              background: previewAnim === tab.id ? "var(--accent-soft)" : "var(--surface-2)",
+              color: previewAnim === tab.id ? "var(--accent)" : "inherit",
               border: "none",
               borderRadius: 4,
               cursor: "pointer",
@@ -75,7 +75,7 @@ export function AnimationControls({
       )}
 
       {previewAnim !== "none" && !missingName && !clip && (
-        <p style={{ fontSize: 11, color: "#8a6d00", margin: "6px 0 0" }}>
+        <p style={{ fontSize: 11, color: "var(--warning)", margin: "6px 0 0" }}>
           No animation data for these models &mdash; the meshes have no vertex groups to pose, so the plugin will
           render them static too.
         </p>
@@ -102,8 +102,8 @@ export function AnimationControls({
                 style={{
                   fontSize: 11,
                   padding: "3px 7px",
-                  background: timeScale === speed ? "#ddd" : "transparent",
-                  border: "1px solid #ddd",
+                  background: timeScale === speed ? "var(--surface-3)" : "transparent",
+                  border: "1px solid var(--border)",
                   borderRadius: 4,
                   cursor: "pointer",
                 }}

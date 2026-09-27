@@ -1,10 +1,14 @@
-import { useCallback, useEffect, useState } from "react";
-import type { CitizenInfo, CitizenRegionFile, WorldPoint } from "@citizens-helper/shared/src/types";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { CitizenInfo, CitizenRegionFile, SceneryInfo, WorldPoint } from "@citizens-helper/shared/src/types";
 import { api } from "../api/client";
 import { ModelThumb } from "../components/ModelThumb";
-import { FavoriteStar } from "../components/FavoriteStar";
 import { RegionOverview } from "../components/RegionOverview";
 import { NearbyNpcRoster } from "../components/NearbyNpcRoster";
+import { regionName } from "../data/regionNames";
+import { Icon } from "../ui/Icon";
+import { PageLoading } from "../ui/AppShell";
+import { useToast } from "../ui/Toasts";
+import { useElementHeight } from "../ui/hooks";
 
 type Props = {
   regionId: number;
@@ -23,69 +27,34 @@ type Props = {
 
 const NEARBY_RADIUS = 2;
 
-function CitizenCard({
-  citizen,
-  regionId,
-  onClick,
-  onDuplicate,
-  onDelete,
-  busy,
-}: {
-  citizen: CitizenInfo;
-  regionId: number;
-  onClick: () => void;
-  onDuplicate: () => void;
-  onDelete: () => void;
-  busy: boolean;
-}) {
-  return (
-    <div style={{ border: "1px solid #ddd", borderRadius: 6, padding: 8, width: 144, textAlign: "center" }}>
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <FavoriteStar
-          entryKey={`citizen:${regionId}:${citizen.uuid}`}
-          buildEntry={() => {
-            const animations: Record<string, string | number> = {};
-            if (citizen.idleAnimation) animations.idle = citizen.idleAnimation;
-            if (citizen.moveAnimation) animations.move = citizen.moveAnimation;
-            return {
-              key: `citizen:${regionId}:${citizen.uuid}`,
-              kind: "citizen",
-              sourceLabel: `region ${regionId}`,
-              name: citizen.name,
-              modelIds: citizen.modelIds,
-              recolorFind: citizen.modelRecolorFind ?? [],
-              recolorReplace: citizen.modelRecolorReplace ?? [],
-              animations,
-            };
-          }}
-        />
-      </div>
-      <div onClick={onClick} style={{ cursor: "pointer" }}>
-        <ModelThumb
-          modelIds={citizen.modelIds}
-          recolorFind={citizen.modelRecolorFind ?? []}
-          recolorReplace={citizen.modelRecolorReplace ?? []}
-          size={128}
-          alt={citizen.name}
-        />
-        <div style={{ fontSize: 13, marginTop: 6 }}>{citizen.name}</div>
-        <div style={{ fontSize: 11, opacity: 0.6 }}>{citizen.entityType.replace("Citizen", "")}</div>
-      </div>
-      <div style={{ display: "flex", gap: 4, justifyContent: "center", marginTop: 6 }}>
-        <button onClick={onDuplicate} disabled={busy} style={{ fontSize: 11, padding: "2px 6px" }}>
-          Duplicate
-        </button>
-        <button onClick={onDelete} disabled={busy} style={{ fontSize: 11, padding: "2px 6px", color: "crimson" }}>
-          Delete
-        </button>
-      </div>
-    </div>
-  );
-}
+type Filter = "all" | "StationaryCitizen" | "WanderingCitizen" | "ScriptedCitizen" | "Scenery";
 
+const FILTERS: { key: Filter; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "StationaryCitizen", label: "Stationary" },
+  { key: "WanderingCitizen", label: "Wandering" },
+  { key: "ScriptedCitizen", label: "Scripted" },
+  { key: "Scenery", label: "Scenery" },
+];
+
+const TYPE_BADGE: Record<string, string> = {
+  StationaryCitizen: "badge-stationary",
+  WanderingCitizen: "badge-wandering",
+  ScriptedCitizen: "badge-scripted",
+  Scenery: "badge-scenery",
+};
+
+type Row =
+  | { kind: "citizen"; entity: CitizenInfo; label: string; type: string }
+  | { kind: "scenery"; entity: SceneryInfo; label: string; type: string };
+
+/**
+ * The workspace for one 64x64 map chunk: a searchable roster of everything in it on the
+ * left, and the tile map (with neighbouring regions faded in for context) on the right.
+ * Right-clicking the map is the fastest way to add a citizen exactly where it should stand.
+ */
 export function RegionDetailView({
   regionId,
-  onBack,
   onSelectCitizen,
   onCreateCitizen,
   onSelectCitizenIn,
@@ -94,24 +63,22 @@ export function RegionDetailView({
   onCreateCitizenAt,
   onCreateSceneryAt,
 }: Props) {
+  const toast = useToast();
   const [region, setRegion] = useState<CitizenRegionFile | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  // Map first: clicking a region on the world map should land you looking at that region,
-  // not at a list.
-  const [view, setView] = useState<"map" | "roster">("map");
   const [plane, setPlane] = useState(0);
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<Filter>("all");
+  const [showNpcs, setShowNpcs] = useState(false);
+  // Bumped after a mutation so the map re-fetches its markers too.
+  const [mapVersion, setMapVersion] = useState(0);
+  const [mapRef, mapHeight] = useElementHeight<HTMLDivElement>(600);
 
   // Stable identities: RegionOverview memoizes its markers on these, and a fresh closure
   // every render would rebuild every marker (and its thumbnail lookup) each time.
-  const selectCitizen = useCallback(
-    (rid: number, uuid: string) => onSelectCitizenIn(rid, uuid),
-    [onSelectCitizenIn],
-  );
-  const selectScenery = useCallback(
-    (rid: number, uuid: string) => onSelectSceneryIn(rid, uuid),
-    [onSelectSceneryIn],
-  );
+  const selectCitizen = useCallback((rid: number, uuid: string) => onSelectCitizenIn(rid, uuid), [onSelectCitizenIn]);
+  const selectScenery = useCallback((rid: number, uuid: string) => onSelectSceneryIn(rid, uuid), [onSelectSceneryIn]);
 
   useEffect(() => {
     setRegion(null);
@@ -124,164 +91,214 @@ export function RegionDetailView({
 
   // Every mutation returns the whole updated region file, so the roster is replaced with
   // the server's copy rather than patched locally - no chance of the two drifting.
-  async function mutate(work: () => Promise<CitizenRegionFile>) {
+  async function mutate(work: () => Promise<CitizenRegionFile>, success: string) {
     setBusy(true);
-    setError(null);
     try {
       setRegion(await work());
+      setMapVersion((v) => v + 1);
+      toast.success(success);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      toast.error(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
     }
   }
 
+  const rows = useMemo<Row[]>(() => {
+    if (!region) return [];
+    const all: Row[] = [
+      ...region.citizenRoster.map<Row>((c) => ({ kind: "citizen", entity: c, label: c.name, type: c.entityType })),
+      ...region.sceneryRoster.map<Row>((s) => ({
+        kind: "scenery",
+        entity: s,
+        label: `Scenery ${s.modelIds.slice(0, 2).join(", ")}${s.modelIds.length > 2 ? "…" : ""}`,
+        type: "Scenery",
+      })),
+    ];
+    const q = query.trim().toLowerCase();
+    return all.filter(
+      (r) =>
+        (filter === "all" || r.type === filter) &&
+        (!q ||
+          r.label.toLowerCase().includes(q) ||
+          (r.kind === "citizen" && (r.entity.startScript ?? "").toLowerCase().includes(q)) ||
+          r.entity.modelIds.some((m) => String(m).startsWith(q))),
+    );
+  }, [region, query, filter]);
+
   if (error && !region) {
     return (
-      <div>
-        <button onClick={onBack}>&larr; Back to regions</button>
-        <p style={{ color: "crimson" }}>{error}</p>
+      <div className="page" style={{ height: "100%" }}>
+        <div className="callout callout-danger">{error}</div>
       </div>
     );
   }
-  if (!region) return <p>Loading region {regionId}...</p>;
+  if (!region) return <PageLoading label={`Loading region ${regionId}…`} />;
 
-  const isEmpty = region.citizenRoster.length === 0 && region.sceneryRoster.length === 0;
+  const counts: Record<Filter, number> = {
+    all: region.citizenRoster.length + region.sceneryRoster.length,
+    StationaryCitizen: region.citizenRoster.filter((c) => c.entityType === "StationaryCitizen").length,
+    WanderingCitizen: region.citizenRoster.filter((c) => c.entityType === "WanderingCitizen").length,
+    ScriptedCitizen: region.citizenRoster.filter((c) => c.entityType === "ScriptedCitizen").length,
+    Scenery: region.sceneryRoster.length,
+  };
+  const isEmpty = counts.all === 0;
+  const place = regionName(regionId);
+
+  function remove(row: Row) {
+    const what = row.kind === "citizen" ? `"${row.label}"` : "this scenery";
+    if (!confirm(`Delete ${what}? This rewrites RegionData/${regionId}.json.`)) return;
+    if (row.kind === "citizen") {
+      void mutate(() => api.deleteCitizen(regionId, row.entity.uuid), `Deleted ${row.label}`);
+    } else {
+      void mutate(() => api.deleteScenery(regionId, row.entity.uuid), "Deleted scenery");
+    }
+  }
 
   return (
-    <div>
-      <button onClick={onBack}>&larr; Back to regions</button>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <h2 style={{ marginBottom: 4 }}>Region {regionId}</h2>
-        <button onClick={() => setView("map")} disabled={view === "map"}>
-          Map
-        </button>
-        <button onClick={() => setView("roster")} disabled={view === "roster"}>
-          Roster
-        </button>
-        <button onClick={onCreateCitizen} disabled={busy}>
-          + New citizen
-        </button>
-        {view === "map" && (
-          <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
-            <button onClick={() => setPlane((p) => Math.max(0, p - 1))} disabled={plane === 0}>
-              Z-
-            </button>
-            plane {plane}
-            <button onClick={() => setPlane((p) => Math.min(3, p + 1))} disabled={plane === 3}>
-              Z+
-            </button>
-          </span>
-        )}
-      </div>
-
-      {error && <p style={{ color: "crimson" }}>{error}</p>}
-
-      {isEmpty && (
-        <p style={{ fontSize: 13, opacity: 0.75 }}>
-          This region has no data file yet. Creating a citizen here will create{" "}
-          <code>RegionData/{regionId}.json</code>.
-        </p>
-      )}
-
-      {view === "map" && (
-        <RegionOverview
-          regionId={regionId}
-          radius={NEARBY_RADIUS}
-          plane={plane}
-          onSelectCitizen={selectCitizen}
-          onSelectScenery={selectScenery}
-          onCreateCitizenAt={onCreateCitizenAt}
-          onCreateSceneryAt={onCreateSceneryAt}
-        />
-      )}
-
-      {view === "roster" && (
-        <>
-      <h3>Citizens ({region.citizenRoster.length})</h3>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-        {region.citizenRoster.map((c) => (
-          <CitizenCard
-            key={c.uuid}
-            citizen={c}
-            regionId={regionId}
-            busy={busy}
-            onClick={() => onSelectCitizen(c.uuid)}
-            onDuplicate={() => mutate(() => api.duplicateCitizen(regionId, c.uuid))}
-            onDelete={() => {
-              if (confirm(`Delete "${c.name}"? This rewrites RegionData/${regionId}.json.`)) {
-                mutate(() => api.deleteCitizen(regionId, c.uuid));
-              }
-            }}
-          />
-        ))}
-      </div>
-
-      <h3>Scenery ({region.sceneryRoster.length})</h3>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-        {region.sceneryRoster.map((s) => (
-          <div key={s.uuid} style={{ border: "1px solid #ddd", borderRadius: 6, padding: 8, width: 144, textAlign: "center" }}>
-            <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <FavoriteStar
-                entryKey={`scenery:${regionId}:${s.uuid}`}
-                buildEntry={() => {
-                  const animations: Record<string, string | number> = {};
-                  if (s.idleAnimation) animations.idle = s.idleAnimation;
-                  return {
-                    key: `scenery:${regionId}:${s.uuid}`,
-                    kind: "scenery",
-                    sourceLabel: `region ${regionId}`,
-                    name: null,
-                    modelIds: s.modelIds,
-                    recolorFind: s.modelRecolorFind ?? [],
-                    recolorReplace: s.modelRecolorReplace ?? [],
-                    animations,
-                  };
-                }}
-              />
-            </div>
-            <ModelThumb
-              modelIds={s.modelIds}
-              recolorFind={s.modelRecolorFind ?? []}
-              recolorReplace={s.modelRecolorReplace ?? []}
-              size={128}
-              alt={`scenery ${s.uuid}`}
-            />
-            <div style={{ fontSize: 11, opacity: 0.7, marginTop: 6 }}>[{s.modelIds.join(", ")}]</div>
-            <div style={{ fontSize: 11, opacity: 0.6 }}>
-              ({s.worldLocation.x}, {s.worldLocation.y})
-            </div>
-            <div style={{ display: "flex", gap: 4, justifyContent: "center", marginTop: 4 }}>
-              <button
-                onClick={() => onSelectSceneryIn(regionId, s.uuid)}
-                disabled={busy}
-                style={{ fontSize: 11, padding: "2px 6px" }}
-              >
-                Edit
-              </button>
-              <button
-                onClick={() => {
-                  if (confirm(`Delete this scenery entry? This rewrites RegionData/${regionId}.json.`)) {
-                    mutate(() => api.deleteScenery(regionId, s.uuid));
-                  }
-                }}
-                disabled={busy}
-                style={{ fontSize: 11, padding: "2px 6px", color: "crimson" }}
-              >
-                Delete
-              </button>
+    <div style={{ position: "absolute", inset: 0, display: "grid", gridTemplateColumns: "340px 1fr" }}>
+      {/* Roster */}
+      <aside
+        style={{
+          borderRight: "1px solid var(--border)",
+          background: "var(--surface)",
+          display: "flex",
+          flexDirection: "column",
+          minHeight: 0,
+        }}
+      >
+        <div style={{ padding: "14px 14px 10px" }} className="stack-sm">
+          <div>
+            <h2 style={{ margin: 0 }}>{place ?? `Region ${regionId}`}</h2>
+            <div className="xsmall faint mono">
+              region {regionId}
+              {isEmpty ? " · no data file yet" : ` · ${counts.all} entities`}
             </div>
           </div>
-        ))}
-      </div>
+          <div className="row">
+            <button className="btn-primary" onClick={onCreateCitizen} disabled={busy} style={{ flex: 1 }}>
+              <Icon name="plus" /> New citizen
+            </button>
+            <button onClick={() => setShowNpcs((v) => !v)} className={showNpcs ? "is-active" : ""} title="Clone a real NPC from this area">
+              <Icon name="copy" /> From NPC
+            </button>
+          </div>
+          <input placeholder="Search name, script or model id…" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <div className="row-tight" style={{ flexWrap: "wrap" }}>
+            {FILTERS.map((f) => (
+              <button
+                key={f.key}
+                className={`btn-sm${filter === f.key ? " is-active" : ""}`}
+                onClick={() => setFilter(f.key)}
+                disabled={f.key !== "all" && counts[f.key] === 0}
+              >
+                {f.label} <span className="faint">{counts[f.key]}</span>
+              </button>
+            ))}
+          </div>
+        </div>
 
-          <NearbyNpcRoster
+        <div style={{ flex: 1, overflowY: "auto", padding: "0 8px 12px", minHeight: 0 }}>
+          {showNpcs && (
+            <div className="card card-pad" style={{ margin: "0 6px 10px" }}>
+              <NearbyNpcRoster
+                regionId={regionId}
+                radius={NEARBY_RADIUS}
+                onCloneToCitizen={(npc) => onCloneNpcToCitizen(npc.npcId)}
+              />
+            </div>
+          )}
+
+          {isEmpty ? (
+            <div className="empty">
+              <strong>An empty chunk</strong>
+              <span>
+                Right-click any tile on the map to place the first citizen or piece of scenery. Saving creates{" "}
+                <code>RegionData/{regionId}.json</code>.
+              </span>
+            </div>
+          ) : rows.length === 0 ? (
+            <div className="empty">Nothing matches that search.</div>
+          ) : (
+            rows.map((row) => (
+              <div
+                key={row.entity.uuid}
+                className="list-item"
+                role="button"
+                tabIndex={0}
+                onClick={() => (row.kind === "citizen" ? onSelectCitizen(row.entity.uuid) : onSelectSceneryIn(regionId, row.entity.uuid))}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") (e.currentTarget as HTMLElement).click();
+                }}
+              >
+                <div className="thumb" style={{ width: 44, height: 44 }}>
+                  <ModelThumb
+                    modelIds={row.entity.modelIds}
+                    recolorFind={row.entity.modelRecolorFind ?? []}
+                    recolorReplace={row.entity.modelRecolorReplace ?? []}
+                    size={44}
+                    alt={row.label}
+                  />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="title truncate">{row.label}</div>
+                  <div className="row-tight meta">
+                    <span className={`badge ${TYPE_BADGE[row.type]}`}>{row.type.replace("Citizen", "")}</span>
+                    <span className="mono">
+                      {row.entity.worldLocation.x},{row.entity.worldLocation.y}
+                      {row.entity.worldLocation.plane ? ` z${row.entity.worldLocation.plane}` : ""}
+                    </span>
+                  </div>
+                </div>
+                <div className="row-tight" onClick={(e) => e.stopPropagation()}>
+                  {row.kind === "citizen" && (
+                    <button
+                      className="btn-ghost btn-sm btn-icon"
+                      title="Duplicate"
+                      disabled={busy}
+                      onClick={() => mutate(() => api.duplicateCitizen(regionId, row.entity.uuid), `Duplicated ${row.label}`)}
+                    >
+                      <Icon name="copy" size={14} />
+                    </button>
+                  )}
+                  <button className="btn-ghost btn-sm btn-icon" title="Delete" disabled={busy} onClick={() => remove(row)}>
+                    <Icon name="trash" size={14} />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </aside>
+
+      {/* Map */}
+      <div style={{ display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0, padding: 12, gap: 8 }}>
+        <div className="row">
+          <div className="segmented" title="Floor">
+            {["Ground", "Floor 1", "Floor 2", "Floor 3"].map((p, i) => (
+              <button key={i} className={plane === i ? "is-active" : ""} onClick={() => setPlane(i)}>
+                {p}
+              </button>
+            ))}
+          </div>
+          <span className="xsmall faint">
+            Click a marker to edit it · <strong>right-click a tile</strong> to add something there
+          </span>
+        </div>
+        <div ref={mapRef} style={{ flex: 1, minHeight: 0 }}>
+          <RegionOverview
+            key={mapVersion}
             regionId={regionId}
             radius={NEARBY_RADIUS}
-            onCloneToCitizen={(npc) => onCloneNpcToCitizen(npc.npcId)}
+            plane={plane}
+            onSelectCitizen={selectCitizen}
+            onSelectScenery={selectScenery}
+            onCreateCitizenAt={onCreateCitizenAt}
+            onCreateSceneryAt={onCreateSceneryAt}
+            height={Math.max(320, mapHeight - 28)}
           />
-        </>
-      )}
+        </div>
+      </div>
     </div>
   );
 }

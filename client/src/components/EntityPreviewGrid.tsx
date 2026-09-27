@@ -79,7 +79,7 @@ export function EntityPreviewGrid<T extends PreviewItem>({ items, renderCard, op
           top: 12,
           width: 260,
           flexShrink: 0,
-          border: "1px solid #ddd",
+          border: "1px solid var(--border)",
           borderRadius: 6,
           padding: 10,
         }}
@@ -87,16 +87,16 @@ export function EntityPreviewGrid<T extends PreviewItem>({ items, renderCard, op
         {!selected && <p style={{ fontSize: 12, opacity: 0.6, margin: 0 }}>Click a card to preview it here.</p>}
         {selected && (
           <>
-            <div style={{ width: 240, height: 240, background: "#1e1e22", borderRadius: 4, overflow: "hidden" }}>
+            <div style={{ width: 240, height: 240, background: "var(--bg)", borderRadius: 4, overflow: "hidden" }}>
               {gltf ? (
                 <LiveViewer gltfText={gltf} width={240} height={240} />
               ) : (
-                <div style={{ display: "grid", placeItems: "center", height: "100%", fontSize: 12, color: "#aaa" }}>
+                <div style={{ display: "grid", placeItems: "center", height: "100%", fontSize: 12, color: "var(--text-faint)" }}>
                   {selected.modelIds.length === 0 ? "No models" : "Loading preview..."}
                 </div>
               )}
             </div>
-            {previewError && <p style={{ color: "crimson", fontSize: 11 }}>{previewError}</p>}
+            {previewError && <p style={{ color: "var(--danger)", fontSize: 11 }}>{previewError}</p>}
             <div style={{ fontSize: 13, marginTop: 8, fontWeight: "bold" }}>
               {selected.name ?? <span style={{ opacity: 0.6 }}>(unnamed)</span>}
             </div>

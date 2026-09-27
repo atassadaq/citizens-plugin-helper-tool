@@ -57,7 +57,7 @@ function ModelThumb({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
-  if (failed) return <span style={{ fontSize: 10, color: "crimson" }}>bad id</span>;
+  if (failed) return <span style={{ fontSize: 10, color: "var(--danger)" }}>bad id</span>;
   if (!thumb) return <span style={{ fontSize: 10, opacity: 0.5 }}>...</span>;
   return <img src={thumb} width={64} height={64} alt={`model ${id}`} />;
 }
@@ -111,9 +111,9 @@ export function ModelPicker({ modelIds, recolorFind, recolorReplace, onChange }:
                 width: 68,
                 height: 68,
                 padding: 0,
-                border: editingIndex === index ? "2px solid #4a90e2" : "1px solid #ccc",
+                border: editingIndex === index ? "2px solid #4a90e2" : "1px solid var(--border)",
                 borderRadius: 6,
-                background: "#f2f2f2",
+                background: "var(--surface-2)",
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
@@ -134,8 +134,8 @@ export function ModelPicker({ modelIds, recolorFind, recolorReplace, onChange }:
                   width: 18,
                   height: 18,
                   borderRadius: "50%",
-                  border: "1px solid #ccc",
-                  background: "#fff",
+                  border: "1px solid var(--border)",
+                  background: "var(--surface)",
                   cursor: "pointer",
                   fontSize: 11,
                   lineHeight: 1,
@@ -154,8 +154,8 @@ export function ModelPicker({ modelIds, recolorFind, recolorReplace, onChange }:
                   top: "100%",
                   left: 0,
                   zIndex: 10,
-                  background: "#fff",
-                  border: "1px solid #ccc",
+                  background: "var(--surface)",
+                  border: "1px solid var(--border)",
                   borderRadius: 4,
                   padding: 6,
                   marginTop: 4,
@@ -188,12 +188,12 @@ export function ModelPicker({ modelIds, recolorFind, recolorReplace, onChange }:
           style={{
             width: 68,
             height: 68,
-            border: "1px dashed #999",
+            border: "1px dashed var(--border-strong)",
             borderRadius: 6,
             background: "transparent",
             cursor: "pointer",
             fontSize: 22,
-            color: "#999",
+            color: "var(--text-faint)",
           }}
         >
           +

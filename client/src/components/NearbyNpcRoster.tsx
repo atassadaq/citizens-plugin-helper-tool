@@ -62,7 +62,7 @@ export function NearbyNpcRoster({ regionId, radius, onCloneToCitizen }: Props) {
         the NPC's models and recolours into a new citizen.
       </p>
 
-      {error && <p style={{ color: "crimson", fontSize: 13 }}>{error}</p>}
+      {error && <p style={{ color: "var(--danger)", fontSize: 13 }}>{error}</p>}
       {!npcs && !error && <p style={{ fontSize: 13 }}>Loading nearby NPCs...</p>}
       {npcs && filtered.length === 0 && <p style={{ fontSize: 13, opacity: 0.7 }}>No matching NPCs.</p>}
 
@@ -70,7 +70,7 @@ export function NearbyNpcRoster({ regionId, radius, onCloneToCitizen }: Props) {
         {filtered.slice(0, shown).map((npc) => (
           <div
             key={npc.npcId}
-            style={{ border: "1px solid #ddd", borderRadius: 6, padding: 8, width: 144, textAlign: "center" }}
+            style={{ border: "1px solid var(--border)", borderRadius: 6, padding: 8, width: 144, textAlign: "center" }}
           >
             <ModelThumb
               modelIds={npc.modelIds}

@@ -114,7 +114,7 @@ export function EntityBrowserView({ kind, onSelect }: Props) {
               borderRadius: 4,
               textDecoration: "none",
               color: "inherit",
-              background: k.kind === kind ? "#4a90e2" : "#eee",
+              background: k.kind === kind ? "var(--accent-soft)" : "var(--surface-2)",
               fontWeight: k.kind === kind ? "bold" : "normal",
             }}
           >
@@ -145,7 +145,7 @@ export function EntityBrowserView({ kind, onSelect }: Props) {
         Click one to preview it live in the panel on the right.
       </p>
 
-      {error && !favoritesOnly && <p style={{ color: "crimson" }}>{error}</p>}
+      {error && !favoritesOnly && <p style={{ color: "var(--danger)" }}>{error}</p>}
       {!page && !favoritesOnly && !error && <p>Loading...</p>}
       {total === 0 && (page || favoritesOnly) && (
         <p>{favoritesOnly ? "No favorites for this kind yet." : "No matches."}</p>
@@ -173,11 +173,11 @@ export function EntityBrowserView({ kind, onSelect }: Props) {
             renderCard={(item, selected) => (
               <div
                 style={{
-                  border: selected ? "2px solid #4a90e2" : "1px solid #ddd",
+                  border: selected ? "2px solid #4a90e2" : "1px solid var(--border)",
                   borderRadius: 6,
                   padding: 8,
                   width: 132,
-                  background: "white",
+                  background: "var(--surface)",
                   textAlign: "center",
                   position: "relative",
                 }}

@@ -40,7 +40,7 @@ export function FavoritesView({ onOpen }: Props) {
         scenery. These do not update if the original source changes - remove and re-favorite to refresh one.
       </p>
 
-      {error && <p style={{ color: "crimson" }}>{error}</p>}
+      {error && <p style={{ color: "var(--danger)" }}>{error}</p>}
 
       <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
         {KIND_FILTERS.map((k) => (
@@ -52,8 +52,8 @@ export function FavoritesView({ onOpen }: Props) {
               borderRadius: 4,
               border: "none",
               cursor: "pointer",
-              background: k.kind === kindFilter ? "#4a90e2" : "#eee",
-              color: k.kind === kindFilter ? "white" : "inherit",
+              background: k.kind === kindFilter ? "var(--accent-soft)" : "var(--surface-2)",
+              color: k.kind === kindFilter ? "var(--accent)" : "inherit",
               fontWeight: k.kind === kindFilter ? "bold" : "normal",
             }}
           >
@@ -77,11 +77,11 @@ export function FavoritesView({ onOpen }: Props) {
           renderCard={(entry, selected) => (
             <div
               style={{
-                border: selected ? "2px solid #4a90e2" : "1px solid #ddd",
+                border: selected ? "2px solid #4a90e2" : "1px solid var(--border)",
                 borderRadius: 6,
                 padding: 8,
                 width: 140,
-                background: "white",
+                background: "var(--surface)",
                 textAlign: "center",
               }}
             >
@@ -117,7 +117,7 @@ export function FavoritesView({ onOpen }: Props) {
                     e.stopPropagation();
                     toggle(entry.key, () => entry);
                   }}
-                  style={{ fontSize: 12, padding: "3px 8px", color: "crimson" }}
+                  style={{ fontSize: 12, padding: "3px 8px", color: "var(--danger)" }}
                 >
                   Remove
                 </button>

@@ -132,9 +132,17 @@ export type KitSummary = {
 
 export type ActionType = "Idle" | "WalkTo" | "Animation" | "Say" | "FaceDirection";
 
-// CardinalDirection.java defines exactly these seven - NorthEast is genuinely absent from
-// the enum, so it is not a valid targetRotation no matter how odd that looks.
-export type CardinalDirection = "North" | "NorthWest" | "West" | "SouthWest" | "South" | "SouthEast" | "East";
+// Mirrors CardinalDirection.java. NorthEast was missing from the Java enum until the 2026
+// plugin revamp added it - scripts using it need a plugin build from that revamp or later.
+export type CardinalDirection =
+  | "North"
+  | "NorthEast"
+  | "NorthWest"
+  | "West"
+  | "SouthWest"
+  | "South"
+  | "SouthEast"
+  | "East";
 
 export type ScriptAction = {
   action: ActionType;

@@ -1,168 +1,258 @@
 import { useEffect, useMemo, useState } from "react";
-import type { CSSProperties } from "react";
 import type { RegionSummary } from "@citizens-helper/shared/src/types";
 import { api } from "../api/client";
 import { RegionMap } from "../components/RegionMap";
+import { OSRS_LOCATIONS } from "../data/osrsLocations";
+import { regionName } from "../data/regionNames";
+import { Icon } from "../ui/Icon";
+import { PageLoading } from "../ui/AppShell";
 
-type Props = {
-  onSelectRegion: (regionId: number) => void;
-  onOpenModelBrowser: () => void;
-};
-
-const hudPanelStyle: CSSProperties = {
-  background: "rgba(24,26,32,0.85)",
-  color: "#eee",
-  borderRadius: 8,
-  padding: 10,
-  boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
-};
-
-export function RegionListView({ onSelectRegion, onOpenModelBrowser }: Props) {
+// Shared between the map and the table: one fetch per mount is cheap (a directory listing),
+// and keeping the two views independent means either can be deep-linked.
+function useRegions() {
   const [regions, setRegions] = useState<RegionSummary[] | null>(null);
-  const [filter, setFilter] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [mode, setMode] = useState<"map" | "list">("map");
-  const [showAllRegions, setShowAllRegions] = useState(false);
-  const [showPlaceNames, setShowPlaceNames] = useState(false);
-  const [plane, setPlane] = useState(0);
-
   useEffect(() => {
     api
       .listRegions()
       .then(setRegions)
       .catch((e) => setError(e.message));
   }, []);
+  return { regions, error };
+}
 
-  // Memoized so the array reference only changes when regions/filter actually change -
-  // RegionMap re-fits/rebuilds whenever its `regions` prop reference changes, and this is
-  // otherwise recomputed (as a new array) on every render, including HUD-only state changes
-  // like toggling the floor or place names, which would reset the user's pan/zoom.
-  const filtered = useMemo(
-    () => (regions ?? []).filter((r) => r.regionId.toString().includes(filter.trim())),
-    [regions, filter],
-  );
+const PLANE_NAMES = ["Ground floor", "1st floor", "2nd floor", "3rd floor"];
 
-  if (error) return <p style={{ color: "crimson", padding: 16 }}>{error}</p>;
-  if (!regions) return <p style={{ padding: 16 }}>Loading regions...</p>;
+type SearchHit = { regionId: number; label: string; detail: string };
 
-  const modeToggle = (
-    <div style={{ display: "flex", gap: 6 }}>
-      <button onClick={() => setMode("map")} disabled={mode === "map"}>
-        Map
-      </button>
-      <button onClick={() => setMode("list")} disabled={mode === "list"}>
-        List
-      </button>
-      {mode === "map" && (
-        <button onClick={() => setShowAllRegions((v) => !v)} style={{ fontWeight: showAllRegions ? "bold" : "normal" }}>
-          {showAllRegions ? "Hide all regions" : "Show all regions"}
-        </button>
-      )}
-      {mode === "map" && (
-        <button onClick={() => setShowPlaceNames((v) => !v)} style={{ fontWeight: showPlaceNames ? "bold" : "normal" }}>
-          {showPlaceNames ? "Hide place names" : "Show place names"}
-        </button>
-      )}
-    </div>
-  );
+/**
+ * Finds regions by id or by place name. Place names resolve to the region containing the
+ * place, so typing "draynor" jumps straight to the chunk you want to populate - even if it
+ * has no data file yet.
+ */
+function searchRegions(query: string, regions: RegionSummary[]): SearchHit[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  const hits: SearchHit[] = [];
+  const seen = new Set<number>();
+  const byId = new Map(regions.map((r) => [r.regionId, r]));
 
-  const PLANE_NAMES = ["Ground floor", "1st floor", "2nd floor", "3rd floor"];
-  const planeControl = (
-    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8 }}>
-      <button onClick={() => setPlane((p) => Math.max(0, p - 1))} disabled={plane === 0} title="Floor down">
-        Z-
-      </button>
-      <span style={{ fontSize: 12, minWidth: 90, textAlign: "center" }}>{PLANE_NAMES[plane]}</span>
-      <button onClick={() => setPlane((p) => Math.min(3, p + 1))} disabled={plane === 3} title="Floor up">
-        Z+
-      </button>
-    </div>
-  );
-
-  if (mode === "list") {
-    return (
-      <div style={{ fontFamily: "sans-serif", padding: 16, maxWidth: 960, margin: "0 auto" }}>
-        <h1 style={{ fontSize: 20 }}>Citizens Plugin Helper Tool</h1>
-        <div style={{ display: "flex", gap: 8, marginBottom: 12, alignItems: "center" }}>
-          {modeToggle}
-          <button onClick={onOpenModelBrowser}>Model Browser</button>
-          <input
-            placeholder="Filter by region id..."
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            style={{ marginLeft: "auto", padding: 6, flex: 1, maxWidth: 320 }}
-          />
-        </div>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr style={{ textAlign: "left", borderBottom: "1px solid #ccc" }}>
-              <th>Region ID</th>
-              <th>Citizens</th>
-              <th>Scenery</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((r) => (
-              <tr
-                key={r.regionId}
-                onClick={() => onSelectRegion(r.regionId)}
-                style={{ cursor: "pointer", borderBottom: "1px solid #eee" }}
-              >
-                <td>{r.regionId}</td>
-                <td>{r.citizenCount}</td>
-                <td>{r.sceneryCount}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
+  if (/^\d+$/.test(q)) {
+    for (const r of regions) {
+      if (r.regionId.toString().startsWith(q) && !seen.has(r.regionId)) {
+        seen.add(r.regionId);
+        hits.push({ regionId: r.regionId, label: regionName(r.regionId) ?? `Region ${r.regionId}`, detail: `${r.regionId} · ${r.citizenCount} citizens` });
+      }
+    }
+    const exact = Number(q);
+    if (exact > 0 && exact < 65536 && !seen.has(exact)) {
+      hits.unshift({ regionId: exact, label: regionName(exact) ?? `Region ${exact}`, detail: `${exact} · empty` });
+    }
+  } else {
+    for (const loc of OSRS_LOCATIONS) {
+      if (!loc.name.toLowerCase().includes(q)) continue;
+      const regionId = ((loc.x >> 6) << 8) | (loc.y >> 6);
+      if (seen.has(regionId)) continue;
+      seen.add(regionId);
+      const r = byId.get(regionId);
+      hits.push({
+        regionId,
+        label: loc.name,
+        detail: `${regionId} · ${r ? `${r.citizenCount} citizens, ${r.sceneryCount} scenery` : "empty"}`,
+      });
+    }
   }
+  return hits.slice(0, 8);
+}
 
-  // Map mode: the map fills the whole viewport, and all controls float over it as HUD panels.
+function RegionSearch({ regions, onSelect }: { regions: RegionSummary[]; onSelect: (id: number) => void }) {
+  const [query, setQuery] = useState("");
+  const [active, setActive] = useState(0);
+  const hits = useMemo(() => searchRegions(query, regions), [query, regions]);
+
   return (
-    <div style={{ position: "fixed", inset: 0, fontFamily: "sans-serif" }}>
+    <div style={{ position: "relative" }}>
+      <div style={{ position: "relative" }}>
+        <span className="faint" style={{ position: "absolute", left: 9, top: 8 }}>
+          <Icon name="search" size={15} />
+        </span>
+        <input
+          autoFocus
+          placeholder="Find a place or region id…"
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setActive(0);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowDown") setActive((a) => Math.min(a + 1, hits.length - 1));
+            if (e.key === "ArrowUp") setActive((a) => Math.max(a - 1, 0));
+            if (e.key === "Enter" && hits[active]) onSelect(hits[active].regionId);
+            if (e.key === "Escape") setQuery("");
+          }}
+          style={{ width: 280, paddingLeft: 30 }}
+        />
+      </div>
+      {hits.length > 0 && (
+        <div className="card" style={{ position: "absolute", top: 36, left: 0, right: 0, padding: 4, boxShadow: "var(--shadow-lg)" }}>
+          {hits.map((h, i) => (
+            <div
+              key={`${h.regionId}-${h.label}`}
+              className={`list-item${i === active ? " selected" : ""}`}
+              onMouseEnter={() => setActive(i)}
+              onClick={() => onSelect(h.regionId)}
+            >
+              <div style={{ minWidth: 0 }}>
+                <div className="title truncate">{h.label}</div>
+                <div className="meta">{h.detail}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const hudStyle: React.CSSProperties = {
+  position: "absolute",
+  zIndex: 1000,
+  padding: 10,
+  background: "color-mix(in srgb, var(--surface) 90%, transparent)",
+  backdropFilter: "blur(8px)",
+  boxShadow: "var(--shadow-lg)",
+};
+
+export function WorldMapView({ onSelectRegion }: { onSelectRegion: (regionId: number) => void }) {
+  const { regions, error } = useRegions();
+  const [showAllRegions, setShowAllRegions] = useState(false);
+  const [showPlaceNames, setShowPlaceNames] = useState(true);
+  const [plane, setPlane] = useState(0);
+
+  if (error) return <div className="callout callout-danger" style={{ margin: 20 }}>{error}</div>;
+  if (!regions) return <PageLoading label="Loading regions…" />;
+
+  const citizens = regions.reduce((n, r) => n + r.citizenCount, 0);
+
+  return (
+    <div style={{ position: "absolute", inset: 0 }}>
       <RegionMap
-        regions={filtered}
+        regions={regions}
         onSelectRegion={onSelectRegion}
         showAllRegions={showAllRegions}
         showPlaceNames={showPlaceNames}
         plane={plane}
       />
 
-      <div style={{ position: "absolute", top: 12, left: 12, zIndex: 1000, ...hudPanelStyle }}>
-        <div style={{ fontSize: 15, fontWeight: "bold", marginBottom: 8 }}>Citizens Plugin Helper Tool</div>
-        {modeToggle}
-        <button onClick={onOpenModelBrowser} style={{ marginTop: 6 }}>
-          Model Browser
-        </button>
-        {planeControl}
+      <div className="card" style={{ ...hudStyle, top: 12, left: 12 }}>
+        <RegionSearch regions={regions} onSelect={onSelectRegion} />
+        <div className="xsmall faint" style={{ marginTop: 8 }}>
+          {regions.length} regions with data · {citizens} citizens. Click any chunk to open it.
+        </div>
       </div>
 
-      <div style={{ position: "absolute", top: 12, right: 12, zIndex: 1000, ...hudPanelStyle }}>
+      <div className="card row" style={{ ...hudStyle, top: 12, right: 12 }}>
+        <div className="segmented" role="group" aria-label="Floor">
+          {PLANE_NAMES.map((name, p) => (
+            <button key={p} className={plane === p ? "is-active" : ""} onClick={() => setPlane(p)} title={name}>
+              {p === 0 ? "Ground" : `Floor ${p}`}
+            </button>
+          ))}
+        </div>
+        <button className={showPlaceNames ? "is-active" : ""} onClick={() => setShowPlaceNames((v) => !v)}>
+          Place names
+        </button>
+        <button className={showAllRegions ? "is-active" : ""} onClick={() => setShowAllRegions((v) => !v)}>
+          Region grid
+        </button>
+      </div>
+
+      <div className="card stack-sm xsmall" style={{ ...hudStyle, bottom: 12, left: 12 }}>
+        <div className="row-tight">
+          <span style={{ width: 12, height: 12, background: "#4a90e2", borderRadius: 2 }} /> Has citizens
+        </div>
+        <div className="row-tight">
+          <span style={{ width: 12, height: 12, background: "#5cb85c", borderRadius: 2 }} /> Scenery only
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type SortKey = "regionId" | "name" | "citizenCount" | "sceneryCount";
+
+export function RegionTableView({ onSelectRegion }: { onSelectRegion: (regionId: number) => void }) {
+  const { regions, error } = useRegions();
+  const [filter, setFilter] = useState("");
+  const [sort, setSort] = useState<{ key: SortKey; desc: boolean }>({ key: "citizenCount", desc: true });
+
+  const rows = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    const list = (regions ?? [])
+      .map((r) => ({ ...r, name: regionName(r.regionId) ?? "" }))
+      .filter((r) => !q || r.regionId.toString().includes(q) || r.name.toLowerCase().includes(q));
+    list.sort((a, b) => {
+      const av = a[sort.key];
+      const bv = b[sort.key];
+      const cmp = typeof av === "string" ? av.localeCompare(bv as string) : (av as number) - (bv as number);
+      return sort.desc ? -cmp : cmp;
+    });
+    return list;
+  }, [regions, filter, sort]);
+
+  if (error) return <div className="callout callout-danger">{error}</div>;
+  if (!regions) return <PageLoading label="Loading regions…" />;
+
+  const header = (key: SortKey, label: string) => (
+    <th
+      style={{ cursor: "pointer", userSelect: "none" }}
+      onClick={() => setSort((s) => ({ key, desc: s.key === key ? !s.desc : key !== "name" && key !== "regionId" }))}
+      aria-sort={sort.key === key ? (sort.desc ? "descending" : "ascending") : "none"}
+    >
+      {label} {sort.key === key ? (sort.desc ? "↓" : "↑") : ""}
+    </th>
+  );
+
+  return (
+    <div className="page-narrow">
+      <div className="page-header">
+        <div>
+          <h1>Regions</h1>
+          <div className="sub">Every 64×64 map chunk that has a RegionData file.</div>
+        </div>
+        <div className="spacer" />
         <input
-          placeholder="Filter by region id..."
+          placeholder="Filter by id or place…"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          style={{ padding: 6, width: 220 }}
+          style={{ width: 260 }}
         />
       </div>
-
-      <div style={{ position: "absolute", bottom: 12, left: 12, zIndex: 1000, fontSize: 12, ...hudPanelStyle }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-          <span style={{ width: 12, height: 12, background: "#4a90e2", display: "inline-block", borderRadius: 2 }} />
-          Has citizens
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: showAllRegions ? 4 : 0 }}>
-          <span style={{ width: 12, height: 12, background: "#5cb85c", display: "inline-block", borderRadius: 2 }} />
-          Has scenery only
-        </div>
-        {showAllRegions && (
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span
-              style={{ width: 12, height: 12, border: "1px solid rgba(190,190,190,0.8)", display: "inline-block", borderRadius: 2 }}
-            />
-            All region boundaries
+      <div className="card" style={{ overflow: "hidden" }}>
+        <table>
+          <thead>
+            <tr>
+              {header("regionId", "Region")}
+              {header("name", "Nearby place")}
+              {header("citizenCount", "Citizens")}
+              {header("sceneryCount", "Scenery")}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.regionId} onClick={() => onSelectRegion(r.regionId)} style={{ cursor: "pointer" }}>
+                <td className="mono">{r.regionId}</td>
+                <td>{r.name || <span className="faint">—</span>}</td>
+                <td>{r.citizenCount}</td>
+                <td>{r.sceneryCount}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {rows.length === 0 && (
+          <div className="empty">
+            <strong>No regions match “{filter}”</strong>
+            Try a region id, or find an empty chunk on the world map to start a new one.
           </div>
         )}
       </div>

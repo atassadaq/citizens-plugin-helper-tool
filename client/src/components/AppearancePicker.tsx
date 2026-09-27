@@ -66,7 +66,7 @@ function CloneSource({ onChange }: { onChange: (next: Appearance) => void }) {
           style={{ padding: 5, flex: 1 }}
         />
       </div>
-      {error && <p style={{ color: "crimson", fontSize: 12 }}>{error}</p>}
+      {error && <p style={{ color: "var(--danger)", fontSize: 12 }}>{error}</p>}
       {!query.trim() && <p style={{ fontSize: 12, opacity: 0.6 }}>Type to search. Picking one replaces the models and recolours below.</p>}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, maxHeight: 260, overflowY: "auto" }}>
         {results.map((entity) => (
@@ -79,7 +79,7 @@ function CloneSource({ onChange }: { onChange: (next: Appearance) => void }) {
                 recolorReplace: entity.recolorReplace,
               })
             }
-            style={{ border: "1px solid #ddd", borderRadius: 6, padding: 6, width: 104, background: "white", cursor: "pointer" }}
+            style={{ border: "1px solid var(--border)", borderRadius: 6, padding: 6, width: 104, background: "var(--surface)", cursor: "pointer" }}
             title={`${entity.name ?? "(unnamed)"} #${entity.id}`}
           >
             <ModelThumb
@@ -148,11 +148,11 @@ function KitSource({ value, onChange }: Props) {
               })
             }
             style={{
-              border: "1px solid #ddd",
+              border: "1px solid var(--border)",
               borderRadius: 6,
               padding: 6,
               width: 104,
-              background: "white",
+              background: "var(--surface)",
               cursor: "pointer",
               opacity: kit.nonSelectable ? 0.5 : 1,
             }}
@@ -176,7 +176,7 @@ export function AppearancePicker({ value, onChange }: Props) {
   ];
 
   return (
-    <div style={{ border: "1px solid #e2e2e2", borderRadius: 6, padding: 10 }}>
+    <div style={{ border: "1px solid var(--border)", borderRadius: 6, padding: 10 }}>
       <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
         {SOURCES.map((s) => (
           <button
@@ -185,8 +185,8 @@ export function AppearancePicker({ value, onChange }: Props) {
             style={{
               fontSize: 12,
               padding: "3px 10px",
-              background: source === s.id ? "#4a90e2" : "#eee",
-              color: source === s.id ? "white" : "inherit",
+              background: source === s.id ? "var(--accent-soft)" : "var(--surface-2)",
+              color: source === s.id ? "var(--accent)" : "inherit",
               border: "none",
               borderRadius: 4,
               cursor: "pointer",
@@ -205,7 +205,7 @@ export function AppearancePicker({ value, onChange }: Props) {
         </p>
       )}
 
-      <div style={{ marginTop: 10, borderTop: "1px solid #eee", paddingTop: 10 }}>
+      <div style={{ marginTop: 10, borderTop: "1px solid var(--border)", paddingTop: 10 }}>
         <CsvArrayInput
           label="Model ids"
           values={value.modelIds}

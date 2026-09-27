@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { getThumbnail, peekThumbnail, thumbKey } from "../three/thumbnailCache";
 
 type Props = {
@@ -10,13 +10,39 @@ type Props = {
 };
 
 // Re-exported so existing importers (ModelPicker, ModelBrowser) keep working - the cache
-// itself now lives in three/thumbnailCache, shared with the Leaflet marker icons.
+// itself lives in three/thumbnailCache, shared with the Leaflet marker icons.
 export { thumbKey };
 
-export function ModelThumb({ modelIds, recolorFind = [], recolorReplace = [], size = 96, alt }: Props) {
+/**
+ * A rendered model snapshot. Rendering only starts once the thumbnail scrolls into view, so
+ * long rosters and search grids don't queue hundreds of renders for rows nobody looks at.
+ */
+export const ModelThumb = memo(function ModelThumb({ modelIds, recolorFind = [], recolorReplace = [], size = 96, alt }: Props) {
   const key = thumbKey(modelIds, recolorFind, recolorReplace);
   const [thumb, setThumb] = useState<string | null>(() => peekThumbnail(modelIds, recolorFind, recolorReplace));
   const [failed, setFailed] = useState(false);
+  const [visible, setVisible] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || visible) return;
+    if (typeof IntersectionObserver === "undefined") {
+      setVisible(true);
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setVisible(true);
+          io.disconnect();
+        }
+      },
+      { rootMargin: "200px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [visible]);
 
   useEffect(() => {
     const cached = peekThumbnail(modelIds, recolorFind, recolorReplace);
@@ -25,46 +51,28 @@ export function ModelThumb({ modelIds, recolorFind = [], recolorReplace = [], si
       setFailed(false);
       return;
     }
-    if (modelIds.length === 0) {
-      return;
-    }
-
-    // Guarded because the grid re-renders as you type in the search box, and an in-flight
-    // render for a row that's since scrolled away must not overwrite the current one.
-    let cancelled = false;
     setThumb(null);
     setFailed(false);
-    getThumbnail(modelIds, recolorFind, recolorReplace)
-      .then((dataUrl) => {
-        if (!cancelled) setThumb(dataUrl);
-      })
-      .catch(() => {
-        if (!cancelled) setFailed(true);
-      });
+    if (modelIds.length === 0 || !visible) return;
 
+    // Guarded because an in-flight render for a row whose models have since changed must
+    // not overwrite the current one.
+    let cancelled = false;
+    getThumbnail(modelIds, recolorFind, recolorReplace)
+      .then((dataUrl) => !cancelled && setThumb(dataUrl))
+      .catch(() => !cancelled && setFailed(true));
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [key, visible]);
 
   return (
-    <div
-      style={{
-        width: size,
-        height: size,
-        background: "#f2f2f2",
-        borderRadius: 4,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        overflow: "hidden",
-      }}
-    >
-      {thumb && <img src={thumb} width={size} height={size} alt={alt ?? ""} />}
-      {!thumb && !failed && modelIds.length > 0 && <span style={{ fontSize: 10, opacity: 0.5 }}>...</span>}
-      {modelIds.length === 0 && <span style={{ fontSize: 10, opacity: 0.5 }}>no model</span>}
-      {failed && <span style={{ fontSize: 10, color: "crimson" }}>failed</span>}
+    <div ref={ref} className="thumb" style={{ width: size, height: size }} title={failed ? "Could not render this model" : undefined}>
+      {thumb && <img src={thumb} width={size} height={size} alt={alt ?? ""} loading="lazy" decoding="async" />}
+      {!thumb && !failed && modelIds.length > 0 && <div className="skeleton" style={{ width: "70%", height: "70%" }} />}
+      {modelIds.length === 0 && <span className="xsmall faint">no model</span>}
+      {failed && <span className="xsmall" style={{ color: "var(--danger)" }}>!</span>}
     </div>
   );
-}
+});

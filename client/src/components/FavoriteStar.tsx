@@ -30,7 +30,7 @@ export function FavoriteStar({ entryKey, buildEntry, size = 16 }: Props) {
         background: "none",
         cursor: "pointer",
         fontSize: size,
-        color: active ? "#f0ad4e" : "#bbb",
+        color: active ? "var(--accent)" : "var(--text-faint)",
         lineHeight: 1,
         padding: 2,
       }}

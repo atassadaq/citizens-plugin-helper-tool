@@ -176,7 +176,7 @@ export function SceneryEditorView({ regionId, uuid, initialPoint, onBack, onCrea
     return (
       <div>
         <button onClick={onBack}>&larr; Back to region {regionId}</button>
-        <p style={{ color: "crimson" }}>{loadError}</p>
+        <p style={{ color: "var(--danger)" }}>{loadError}</p>
       </div>
     );
   }
@@ -250,7 +250,7 @@ export function SceneryEditorView({ regionId, uuid, initialPoint, onBack, onCrea
             }
           />
           {recolorMismatch && (
-            <p style={{ color: "crimson", fontSize: 12 }}>Recolor find/replace arrays must be the same length.</p>
+            <p style={{ color: "var(--danger)", fontSize: 12 }}>Recolor find/replace arrays must be the same length.</p>
           )}
 
           <div style={{ display: "flex", gap: 8, margin: "10px 0" }}>
@@ -300,7 +300,7 @@ export function SceneryEditorView({ regionId, uuid, initialPoint, onBack, onCrea
         </div>
 
         <div style={{ flex: "1 1 380px", minWidth: 340 }}>
-          <div style={{ width: 340, height: 300, border: "1px solid #ddd", borderRadius: 6, overflow: "hidden" }}>
+          <div style={{ width: 340, height: 300, border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden" }}>
             {gltfText ? (
               <LiveViewer gltfText={gltfText} width={340} height={300} />
             ) : (
@@ -309,7 +309,7 @@ export function SceneryEditorView({ regionId, uuid, initialPoint, onBack, onCrea
               </div>
             )}
           </div>
-          {previewError && <p style={{ color: "crimson", fontSize: 12 }}>{previewError}</p>}
+          {previewError && <p style={{ color: "var(--danger)", fontSize: 12 }}>{previewError}</p>}
 
           <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "10px 0 6px" }}>
             <strong style={{ fontSize: 13 }}>Placement</strong>
@@ -339,17 +339,17 @@ export function SceneryEditorView({ regionId, uuid, initialPoint, onBack, onCrea
         </div>
       </div>
 
-      <div style={{ marginTop: 16, borderTop: "1px solid #eee", paddingTop: 12 }}>
+      <div style={{ marginTop: 16, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
         <button onClick={handleSave} disabled={!canSave || saveState === "saving"} style={{ padding: "6px 16px" }}>
           {saveState === "saving" ? "Saving..." : isCreate ? "Create scenery" : "Save"}
         </button>
-        {saveState === "saved" && <span style={{ marginLeft: 8, color: "green" }}>Saved.</span>}
+        {saveState === "saved" && <span style={{ marginLeft: 8, color: "var(--success)" }}>Saved.</span>}
         {!canSave && (
           <span style={{ marginLeft: 8, fontSize: 12, opacity: 0.7 }}>
             {draft.modelIds.length === 0 ? "Pick at least one model to save." : "Fix the errors above to save."}
           </span>
         )}
-        {saveError && <p style={{ color: "crimson", fontSize: 13 }}>{saveError}</p>}
+        {saveError && <p style={{ color: "var(--danger)", fontSize: 13 }}>{saveError}</p>}
       </div>
     </div>
   );

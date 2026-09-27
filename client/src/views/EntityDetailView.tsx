@@ -61,7 +61,7 @@ export function EntityDetailView({ kind, id, onBack }: Props) {
     };
   }, [entity, visibleModelIds]);
 
-  if (error) return <p style={{ color: "crimson" }}>{error}</p>;
+  if (error) return <p style={{ color: "var(--danger)" }}>{error}</p>;
   if (!entity) return <p>Loading...</p>;
 
   // The live preview and "Copy all model ids" button both key off the currently selected
@@ -116,7 +116,7 @@ export function EntityDetailView({ kind, id, onBack }: Props) {
       </div>
 
       {entity.truncatedAtOpcode != null && (
-        <p style={{ fontSize: 12, color: "#8a6d00", background: "#fff8e1", padding: 8, borderRadius: 4 }}>
+        <p style={{ fontSize: 12, color: "var(--warning)", background: "var(--warning-soft)", padding: 8, borderRadius: 4 }}>
           This cache record used opcode {entity.truncatedAtOpcode}, which the bundled cache reader doesn't
           understand, so parsing stopped early - some fields below may be missing. The models shown are still
           the ones that were read successfully.
@@ -125,7 +125,7 @@ export function EntityDetailView({ kind, id, onBack }: Props) {
 
       <div style={{ display: "flex", gap: 20, alignItems: "flex-start", flexWrap: "wrap" }}>
         <div>
-          <div style={{ width: 320, height: 320, border: "1px solid #ddd", borderRadius: 6, overflow: "hidden" }}>
+          <div style={{ width: 320, height: 320, border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden" }}>
             {gltf ? (
               <LiveViewer gltfText={gltf} width={320} height={320} />
             ) : (
@@ -183,13 +183,13 @@ export function EntityDetailView({ kind, id, onBack }: Props) {
                 <div
                   key={`${modelId}-${index}`}
                   style={{
-                    border: "1px solid #ddd",
+                    border: "1px solid var(--border)",
                     borderRadius: 6,
                     padding: 6,
                     width: 104,
                     textAlign: "center",
                     opacity: isHidden ? 0.35 : 1,
-                    background: isHidden ? "#f6f6f6" : "white",
+                    background: isHidden ? "var(--surface-2)" : "var(--surface)",
                   }}
                 >
                   <button

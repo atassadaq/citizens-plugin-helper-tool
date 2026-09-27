@@ -3,7 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Citizens Plugin Helper Tool</title>
+    <title>Citizens Helper</title>
+    <meta name="color-scheme" content="dark light" />
+    <script>
+      // Apply the saved theme before first paint so there's no dark/light flash.
+      try {
+        var t = localStorage.getItem("citizens-theme");
+        if (!t) t = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+        document.documentElement.dataset.theme = t;
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>
