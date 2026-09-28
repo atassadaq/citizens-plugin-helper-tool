@@ -126,7 +126,7 @@ const hudStyle: React.CSSProperties = {
 export function WorldMapView({ onSelectRegion }: { onSelectRegion: (regionId: number) => void }) {
   const { regions, error } = useRegions();
   const [showAllRegions, setShowAllRegions] = useState(false);
-  const [showPlaceNames, setShowPlaceNames] = useState(true);
+  const [showPlaceNames, setShowPlaceNames] = useState(false);
   const [plane, setPlane] = useState(0);
 
   if (error) return <div className="callout callout-danger" style={{ margin: 20 }}>{error}</div>;

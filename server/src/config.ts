@@ -22,7 +22,9 @@ const regionDataPath =
 // Sibling of RegionData. Scripts hold ScriptedCitizen movement routines, referenced from a
 // citizen's `startScript` by bare filename (see ScriptLoader.java).
 const scriptsPath = process.env.SCRIPTS_PATH ?? path.join(citizensRepoPath, "src", "main", "resources", "Scripts");
-const port = Number(process.env.PORT ?? 5175);
+// API_PORT rather than PORT: dev launchers commonly export PORT for the web client (5173),
+// and dotenv never overrides an existing variable, so the API would silently take it.
+const port = Number(process.env.API_PORT ?? 5175);
 
 if (!fs.existsSync(regionDataPath)) {
   throw new Error(

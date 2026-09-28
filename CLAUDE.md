@@ -21,7 +21,7 @@ npm run dev             # starts API server + Vite client together (root workspa
 ```
 
 - Vite prints the client URL (defaults to http://localhost:5173); the API server listens on
-  `PORT` from `.env` (defaults to 5175), proxied from the client under `/api` (see `client/vite.config.ts`).
+  `API_PORT` from `.env` (defaults to 5175; deliberately not `PORT`, which dev launchers export for the client), proxied from the client under `/api` (see `client/vite.config.ts`).
 - `npm run dev -w server` / `npm run dev -w client` to run either half alone.
 - `npm run build -w client` builds the client (`vite build`); the server has no build step, it runs
   directly via `tsx watch` in dev and has no production entrypoint.
