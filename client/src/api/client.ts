@@ -37,6 +37,9 @@ export const api = {
 
   listRegions: () => fetch("/api/regions").then((r) => json<RegionSummary[]>(r)),
 
+  // Every citizen across all region files, each tagged with the region it's saved in.
+  listCitizens: () => fetch("/api/citizens").then((r) => json<CitizenInfo[]>(r)),
+
   getRegion: (regionId: number) => fetch(`/api/regions/${regionId}`).then((r) => json<CitizenRegionFile>(r)),
 
   getNearby: (regionId: number, radius = 5) =>

@@ -404,3 +404,21 @@ export async function findScriptUsages(scriptName: string): Promise<{ regionId: 
 
   return usages;
 }
+
+// Every citizen in every region file, for the "Citizens" tab of the entity browser. Reads
+// the directory fresh each call: there are only a few dozen small files, and it means edits
+// made by the plugin's in-game editor show up without restarting this server.
+export async function listAllCitizens(): Promise<CitizenInfo[]> {
+  const files = (await fs.readdir(config.regionDataPath)).filter((f) => f.endsWith(".json"));
+  const all: CitizenInfo[] = [];
+  for (const file of files) {
+    const raw = await fs.readFile(path.join(config.regionDataPath, file), "utf-8");
+    const parsed = JSON.parse(raw) as CitizenRegionFile;
+    for (const citizen of parsed.citizenRoster ?? []) {
+      // The file's regionId is authoritative - it's where edits must be written back.
+      all.push({ ...citizen, regionId: parsed.regionId });
+    }
+  }
+  all.sort((a, b) => a.name.localeCompare(b.name));
+  return all;
+}

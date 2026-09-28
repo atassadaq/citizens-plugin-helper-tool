@@ -1,10 +1,11 @@
 import { Suspense, lazy, type ReactNode } from "react";
-import { HashRouter, Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { HashRouter, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import type { WorldPoint } from "@citizens-helper/shared/src/types";
 import { regionIdFromTile } from "./components/gameMap";
 import { regionLabel } from "./data/regionNames";
 import { AppShell, PageLoading, type Crumb } from "./ui/AppShell";
 import { Icon } from "./ui/Icon";
+import { ErrorBoundary } from "./ui/ErrorBoundary";
 
 // Route-level code splitting: three.js (editors, browsers) and Leaflet (maps) are large, and
 // each view only pays for what it renders. Named exports are adapted to lazy()'s default.
@@ -16,6 +17,7 @@ const SceneryEditorView = lazy(() => import("./views/SceneryEditorView").then((m
 const EntityBrowserView = lazy(() => import("./views/EntityBrowserView").then((m) => ({ default: m.EntityBrowserView })));
 const EntityDetailView = lazy(() => import("./views/EntityDetailView").then((m) => ({ default: m.EntityDetailView })));
 const FavoritesView = lazy(() => import("./views/FavoritesView").then((m) => ({ default: m.FavoritesView })));
+const CitizensBrowserView = lazy(() => import("./views/CitizensBrowserView").then((m) => ({ default: m.CitizensBrowserView })));
 const ScriptsView = lazy(() => import("./views/ScriptsView").then((m) => ({ default: m.ScriptsView })));
 const ModelBrowser = lazy(() => import("./components/ModelBrowser").then((m) => ({ default: m.ModelBrowser })));
 
@@ -57,9 +59,12 @@ function tileQuery(point: WorldPoint): string {
 }
 
 function Page({ crumbs, actions, full, children }: { crumbs?: Crumb[]; actions?: ReactNode; full?: boolean; children: ReactNode }) {
+  const location = useLocation();
   return (
     <AppShell crumbs={crumbs} actions={actions} full={full}>
-      <Suspense fallback={<PageLoading />}>{children}</Suspense>
+      <ErrorBoundary resetKey={location.pathname}>
+        <Suspense fallback={<PageLoading />}>{children}</Suspense>
+      </ErrorBoundary>
     </AppShell>
   );
 }
@@ -182,6 +187,15 @@ function ScriptsRoute() {
 
 const KIND_LABEL = { npc: "NPCs", object: "Objects", item: "Items" } as const;
 
+function CitizensBrowserRoute() {
+  const navigate = useNavigate();
+  return (
+    <Page crumbs={[{ label: "Entity browser", to: "/entities" }, { label: "Our citizens" }]}>
+      <CitizensBrowserView onOpen={(regionId, uuid) => navigate(`/regions/${regionId}/citizens/${uuid}`)} />
+    </Page>
+  );
+}
+
 function EntityBrowserRoute() {
   const navigate = useNavigate();
   const { kind } = useParams();
@@ -190,7 +204,7 @@ function EntityBrowserRoute() {
   }
 
   return (
-    <Page crumbs={[{ label: "Entity browser", to: "/entities/npc" }, { label: KIND_LABEL[kind] }]}>
+    <Page crumbs={[{ label: "Entity browser", to: "/entities" }, { label: KIND_LABEL[kind] }]}>
       <EntityBrowserView kind={kind} onSelect={(id) => navigate(`/entities/${kind}/${id}`)} />
     </Page>
   );
@@ -205,7 +219,7 @@ function EntityDetailRoute() {
   }
 
   return (
-    <Page crumbs={[{ label: "Entity browser", to: "/entities/npc" }, { label: KIND_LABEL[kind], to: `/entities/${kind}` }, { label: `#${id}` }]}>
+    <Page crumbs={[{ label: "Entity browser", to: "/entities" }, { label: KIND_LABEL[kind], to: `/entities/${kind}` }, { label: `#${id}` }]}>
       <EntityDetailView kind={kind} id={id} onBack={() => navigate(`/entities/${kind}`)} />
     </Page>
   );
@@ -251,6 +265,9 @@ export default function App() {
         <Route path="/regions/:regionId/scenery/:uuid" element={<SceneryEditorRoute />} />
         <Route path="/scripts" element={<ScriptsRoute />} />
         <Route path="/scripts/:name" element={<ScriptsRoute />} />
+        <Route path="/entities" element={<Navigate to="/entities/citizens" replace />} />
+        {/* Static segment, so it wins over /entities/:kind below. */}
+        <Route path="/entities/citizens" element={<CitizensBrowserRoute />} />
         <Route path="/entities/:kind" element={<EntityBrowserRoute />} />
         <Route path="/entities/:kind/:id" element={<EntityDetailRoute />} />
         <Route path="/favorites" element={<FavoritesRoute />} />

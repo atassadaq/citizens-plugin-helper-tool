@@ -36,7 +36,7 @@ const NAV: { to: string; label: string; icon: IconName; end?: boolean }[] = [
 ];
 
 const LIBRARY: { to: string; label: string; icon: IconName }[] = [
-  { to: "/entities/npc", label: "Entity browser", icon: "cube" },
+  { to: "/entities", label: "Entity browser", icon: "cube" },
   { to: "/kits", label: "Kit browser", icon: "shirt" },
   { to: "/favorites", label: "Favorites", icon: "star" },
 ];

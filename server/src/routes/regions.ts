@@ -6,6 +6,7 @@ import {
   deleteCitizen,
   deleteScenery,
   duplicateCitizen,
+  listAllCitizens,
   listRegions,
   readNearbyEntities,
   readRegionOrEmpty,
@@ -25,6 +26,14 @@ async function respond(res: Response, work: () => Promise<unknown>): Promise<voi
     res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
   }
 }
+
+regionsRouter.get("/citizens", async (_req, res) => {
+  try {
+    res.json(await listAllCitizens());
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  }
+});
 
 regionsRouter.get("/regions", async (_req, res) => {
   try {

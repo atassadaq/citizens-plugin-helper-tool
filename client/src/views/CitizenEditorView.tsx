@@ -317,7 +317,7 @@ export function CitizenEditorView({ regionId, uuid, initialPoint, cloneFromNpcId
         await api.saveScript(draft.startScript, { actions: scriptActions });
         setSavedScriptJson(JSON.stringify(scriptActions));
       }
-      const cleaned: CitizenInfo = { ...draft, name: draft.name.trim(), remarks: draft.remarks.filter((r) => r.trim()) };
+      const cleaned: CitizenInfo = { ...draft, name: draft.name.trim(), remarks: (draft.remarks ?? []).filter((r) => r.trim()) };
       if (isCreate) {
         const updated = await api.createCitizen(regionId, cleaned);
         const created = updated.citizenRoster[updated.citizenRoster.length - 1];

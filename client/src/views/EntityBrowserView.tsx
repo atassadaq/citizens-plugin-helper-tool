@@ -1,22 +1,16 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import type { EntityKind, EntityPage, EntitySummary } from "@citizens-helper/shared/src/types";
 import { api } from "../api/client";
 import { ModelThumb } from "../components/ModelThumb";
 import { FavoriteStar } from "../components/FavoriteStar";
 import { EntityPreviewGrid, type PreviewItem } from "../components/EntityPreviewGrid";
 import { useFavorites } from "../favorites/FavoritesContext";
+import { EntityTabs } from "../components/EntityTabs";
 
 type Props = {
   kind: EntityKind;
   onSelect: (id: number) => void;
 };
-
-const KINDS: { kind: EntityKind; label: string }[] = [
-  { kind: "npc", label: "NPCs" },
-  { kind: "object", label: "Objects" },
-  { kind: "item", label: "Items" },
-];
 
 const PAGE_SIZE = 60;
 
@@ -105,22 +99,7 @@ export function EntityBrowserView({ kind, onSelect }: Props) {
   return (
     <div>
       <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
-        {KINDS.map((k) => (
-          <Link
-            key={k.kind}
-            to={`/entities/${k.kind}`}
-            style={{
-              padding: "4px 10px",
-              borderRadius: 4,
-              textDecoration: "none",
-              color: "inherit",
-              background: k.kind === kind ? "var(--accent-soft)" : "var(--surface-2)",
-              fontWeight: k.kind === kind ? "bold" : "normal",
-            }}
-          >
-            {k.label}
-          </Link>
-        ))}
+        <EntityTabs active={kind} />
         <input
           placeholder="Search by name or id..."
           value={rawQuery}
