@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { EntityKind, EntitySummary, KitSummary } from "@citizens-helper/shared/src/types";
 import { api } from "../api/client";
 import { ModelThumb } from "./ModelThumb";
-import { CsvArrayInput } from "./CsvArrayInput";
+import { AppearanceParts } from "./AppearanceParts";
 
 type Appearance = {
   modelIds: number[];
@@ -15,7 +15,7 @@ type Props = {
   onChange: (next: Appearance) => void;
 };
 
-type Source = "clone" | "kits" | "raw";
+type Source = "clone" | "kits";
 
 // Cloning replaces the whole appearance (models AND recolours) because an NPC's recolours
 // are meaningless applied to a different set of meshes - they reference palette indices
@@ -132,10 +132,7 @@ function KitSource({ value, onChange }: Props) {
           </option>
         ))}
       </select>
-      <p style={{ fontSize: 12, opacity: 0.6, marginTop: 0 }}>
-        Only Head/Torso/Legs/Boots/Hair are confirmed-accurate labels - trust the picture over the name.
-        Clicking adds that part's models to the list.
-      </p>
+      <p style={{ fontSize: 12, opacity: 0.6, marginTop: 0 }}>Clicking adds that part's models to the list.</p>
       {!kits && <p style={{ fontSize: 12 }}>Loading...</p>}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, maxHeight: 260, overflowY: "auto" }}>
         {kits?.map((kit) => (
@@ -172,55 +169,25 @@ export function AppearancePicker({ value, onChange }: Props) {
   const SOURCES: { id: Source; label: string }[] = [
     { id: "clone", label: "Clone an entity" },
     { id: "kits", label: "Body parts" },
-    { id: "raw", label: "Raw ids" },
   ];
 
   return (
-    <div style={{ border: "1px solid var(--border)", borderRadius: 6, padding: 10 }}>
-      <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
-        {SOURCES.map((s) => (
-          <button
-            key={s.id}
-            onClick={() => setSource(s.id)}
-            style={{
-              fontSize: 12,
-              padding: "3px 10px",
-              background: source === s.id ? "var(--accent-soft)" : "var(--surface-2)",
-              color: source === s.id ? "var(--accent)" : "inherit",
-              border: "none",
-              borderRadius: 4,
-              cursor: "pointer",
-            }}
-          >
-            {s.label}
-          </button>
-        ))}
-      </div>
+    <div className="stack">
+      <AppearanceParts value={value} onChange={onChange} />
 
-      {source === "clone" && <CloneSource onChange={onChange} />}
-      {source === "kits" && <KitSource value={value} onChange={onChange} />}
-      {source === "raw" && (
-        <p style={{ fontSize: 12, opacity: 0.7, marginTop: 0 }}>
-          Edit the model id list directly below.
-        </p>
-      )}
-
-      <div style={{ marginTop: 10, borderTop: "1px solid var(--border)", paddingTop: 10 }}>
-        <CsvArrayInput
-          label="Model ids"
-          values={value.modelIds}
-          onChange={(modelIds) => onChange({ ...value, modelIds })}
-        />
-        <CsvArrayInput
-          label="Recolor find"
-          values={value.recolorFind}
-          onChange={(recolorFind) => onChange({ ...value, recolorFind })}
-        />
-        <CsvArrayInput
-          label="Recolor replace"
-          values={value.recolorReplace}
-          onChange={(recolorReplace) => onChange({ ...value, recolorReplace })}
-        />
+      <div style={{ borderTop: "1px solid var(--border)", paddingTop: 12 }}>
+        <div className="row" style={{ marginBottom: 8 }}>
+          <span className="field-label">Start from</span>
+          <div className="segmented">
+            {SOURCES.map((s) => (
+              <button key={s.id} className={source === s.id ? "is-active" : ""} onClick={() => setSource(s.id)}>
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        {source === "clone" && <CloneSource onChange={onChange} />}
+        {source === "kits" && <KitSource value={value} onChange={onChange} />}
       </div>
     </div>
   );

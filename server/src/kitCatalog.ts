@@ -2,22 +2,26 @@ import { ConfigType, IndexType, type KitDefinition } from "osrscachereader";
 import type { KitSummary } from "@citizens-helper/shared/src/types.js";
 import { cache, cacheReady } from "./rsCache.js";
 
-// RuneLite's net.runelite.api.kit.KitType enum (HEAD=0, CAPE=1, AMULET=2, WEAPON=3, TORSO=4,
-// SHIELD=5, ARMS=6, LEGS=7, HAIR=8, HANDS=9, BOOTS=10, JAW=11) is an *equipment slot* index -
-// verified empirically against the live cache that it does NOT match this identikit config's
-// own bodyPartId numbering (e.g. bodyPartId 5 renders as trousers, not a shield; bodyPartId 6
-// renders as boots, not arms). The live cache also has bodyPartId values 12 and 13, which
-// KitType doesn't cover at all - the character-creation screen has grown since that enum was
-// written. Rather than assert unverified names for slots we can't actually confirm, only the
-// ones cross-checked against real citizen modelIds and/or an unambiguous rendered shape get a
-// real name; the rest are labelled generically. Always trust the rendered thumbnail over the
-// label - that's what the model browser UI is for.
+// Identikit bodyPartId is the character-creation slot, NOT RuneLite's KitType equipment-slot
+// enum (HEAD=0, CAPE=1, ... - a different numbering). Male slots are 0-6 and the female
+// equivalents 7-13. Verified against rendered kits in the live cache (2026-09): 1 renders
+// beards, 2 torsos, 4 pairs of hands, 5 trousers, 6 boots. An earlier version labelled 4 as
+// "Torso" and 7 as generic "Hair" - both wrong - so trust these over older notes.
 const BODY_PART_NAMES: Record<number, string> = {
-  0: "Head",
-  4: "Torso",
+  0: "Hair",
+  1: "Beard",
+  2: "Torso",
+  3: "Arms",
+  4: "Hands",
   5: "Legs",
-  6: "Boots",
-  7: "Hair",
+  6: "Feet",
+  7: "Hair (F)",
+  8: "Jaw (F)",
+  9: "Torso (F)",
+  10: "Arms (F)",
+  11: "Hands (F)",
+  12: "Legs (F)",
+  13: "Feet (F)",
 };
 
 export type BodyPart = { bodyPartId: number; name: string };
@@ -60,4 +64,29 @@ export async function getKitsByBodyPart(bodyPartId: number): Promise<KitSummary[
       recolorReplace: kit.recolorToReplace ?? [],
       nonSelectable: kit.nonSelectable,
     }));
+}
+
+export type ModelPart = { bodyPartId: number; name: string; kitId: number };
+
+// modelId -> the identikit body part it belongs to, so the appearance editor can label each
+// sub-model of a citizen ("Torso", "Legs"...) instead of showing a bare number. Built once:
+// kits are static for the process lifetime. Models from NPC/item definitions that aren't
+// part of any kit simply have no entry.
+let modelIndexPromise: Promise<Record<number, ModelPart>> | null = null;
+
+export function getModelPartIndex(): Promise<Record<number, ModelPart>> {
+  if (!modelIndexPromise) {
+    modelIndexPromise = loadAllKits().then((all) => {
+      const index: Record<number, ModelPart> = {};
+      for (const kit of usableKits(all)) {
+        const name = BODY_PART_NAMES[kit.bodyPartId] ?? `Group ${kit.bodyPartId}`;
+        for (const modelId of kit.models) {
+          // First kit wins; later kits reusing a model don't change what part it is.
+          if (!(modelId in index)) index[modelId] = { bodyPartId: kit.bodyPartId, name, kitId: kit.id };
+        }
+      }
+      return index;
+    });
+  }
+  return modelIndexPromise;
 }

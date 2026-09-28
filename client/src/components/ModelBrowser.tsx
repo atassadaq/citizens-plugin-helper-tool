@@ -114,8 +114,7 @@ export function ModelBrowser({ onBack }: Props) {
       <h2>Model Browser</h2>
       <p style={{ opacity: 0.7, fontSize: 13 }}>
         Browse OSRS character-creation body parts to find replacement model ids. Click a thumbnail's "Copy model
-        ids" to grab the numbers, then paste them into a citizen's model slots. Only Head/Torso/Legs/Boots/Hair are
-        confirmed-accurate labels - the rest ("Group N") are unverified, so trust the picture over the name.
+        ids" to grab the numbers - or, in a citizen's editor, click one of its parts to swap it directly.
       </p>
 
       {error && <p style={{ color: "var(--danger)" }}>{error}</p>}

@@ -97,6 +97,12 @@ export const api = {
 
   kitBodyParts: () => fetch("/api/kits/bodyParts").then((r) => json<{ bodyPartId: number; name: string }[]>(r)),
 
+  // modelId -> body part, for labelling a citizen's sub-models.
+  modelParts: () =>
+    fetch("/api/kits/modelParts").then((r) =>
+      json<Record<string, { bodyPartId: number; name: string; kitId: number }>>(r),
+    ),
+
   kitsByBodyPart: (bodyPartId: number) => fetch(`/api/kits/${bodyPartId}`).then((r) => json<KitSummary[]>(r)),
 
   render: (req: RenderRequest) =>
