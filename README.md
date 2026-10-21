@@ -1,5 +1,7 @@
 # Citizens Plugin Helper Tool
 
+![Varrock open in the region workspace, with the citizen roster on the left and citizen markers on the map](docs/screenshot.png)
+
 A local, browser-based dev tool for the [Citizens RuneLite plugin](https://github.com/atassadaq/citizensRunelite).
 Browse regions, see a citizen roster with real 3D thumbnails composited from the actual OSRS
 game cache, open a citizen to inspect/edit its raw model IDs and recolors with a live interactive
